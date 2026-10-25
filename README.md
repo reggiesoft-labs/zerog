@@ -30,6 +30,7 @@ Also available on the official website: [reggiesoft.com/zerog](https://reggiesof
 
 * **Instant Edge Crossing**: Move smoothly between laptops, desktops, and secondary workstations.
 * **Visual Display Arrangement**: Drag and drop screens in the app to align your monitors exactly as they sit on your desk.
+* **Encrypted with QUIC**: All mouse, keyboard, and clipboard events are securely encrypted peer-to-peer over QUIC.
 * **Local & Private**: Communication stays 100% on your local network. No accounts, no tracking, and no external servers.
 * **Low Latency**: Lightweight peer-to-peer engine written in Rust for minimal input lag.
 * **Broad OS Support**: Native support for macOS, Windows, and Linux (both Wayland and X11).
