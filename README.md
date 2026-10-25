@@ -1,10 +1,12 @@
-# ZeroG
-
-**One mouse and keyboard. Every computer.**
+<div align="center">
+  <img src="gui/src-tauri/icons/icon.png" width="128" height="128" alt="ZeroG Logo" />
+  <h1>ZeroG</h1>
+  <p><strong>One mouse and keyboard. Every computer.</strong></p>
+</div>
 
 ZeroG lets you seamlessly share your mouse and keyboard across multiple computers on your local network. Move your cursor past the edge of one screen to instantly take control of the computer beside it.
 
-Free, open-source, and runs entirely on your local network with zero cloud accounts or hardware switches.
+Free, open-source, and runs entirely on your local network.
 
 ---
 
@@ -21,14 +23,6 @@ Download the latest version for your platform from the [GitHub Releases](https:/
 | **Linux (Universal)** | [ZeroG (.AppImage)](https://github.com/reggiesoft-labs/zerog/releases/latest) | Standalone portable bundle |
 
 Also available on the official website: [reggiesoft.com/zerog](https://reggiesoft.com/zerog/).
-
----
-
-## How It Works
-
-1. **Install ZeroG** on two or more computers connected to the same Wi-Fi or local network.
-2. **Open the app** — ZeroG automatically discovers nearby computers on your network.
-3. **Arrange your displays** visually in the app to match your desk layout, and cross screen edges seamlessly.
 
 ---
 
@@ -58,8 +52,7 @@ ZeroG is completely free and open-source. If it improves your workflow, you can 
 
 ---
 
-<details>
-<summary><strong>Building from Source & Advanced Development</strong></summary>
+## Building from Source & Advanced Development
 
 ### Prerequisites
 
@@ -89,13 +82,6 @@ npm run tauri build
 ### Protocol & Architecture
 
 ZeroG communicates peer-to-peer over local UDP using QUIC for reliable, encrypted input transport and mDNS for automatic zero-configuration discovery (`_zerog._udp.local.`).
-
-For architecture notes, internal test helpers, and platform-specific diagnostics, see:
-* Architecture overview: `diagrams/architecture.md`
-* Peer detection specs: `docs/peer-detection.md`
-* Linux compositor validation: `docs/linux-test-matrix.md`
-
-</details>
 
 ---
 
