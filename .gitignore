@@ -25,3 +25,8 @@ findings/
 plans/
 notes/
 *.notes
+tasks/
+gui/tasks/
+gui/prd.json
+gui/README.md
+AGENTS.md
