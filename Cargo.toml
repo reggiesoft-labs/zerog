@@ -1,0 +1,126 @@
+[workspace]
+members = [".", "gui/src-tauri"]
+resolver = "2"
+
+[workspace.dependencies]
+mouse-thing = { path = "." }
+tokio = { version = "1", features = ["rt", "rt-multi-thread", "time", "sync", "macros", "io-util", "signal"] }
+
+[package]
+name = "mouse-thing"
+version = "1.0.1"
+edition = "2024"
+
+[features]
+default = ["linux-x11", "linux-wayland"]
+linux-x11 = []
+linux-wayland = ["ashpd", "reis", "wayland-client", "wayland-protocols", "wayland-protocols-wlr"]
+
+[dependencies]
+anyhow = "1.0"
+base64 = "0.22"
+bincode = "1.3"
+bytes = "1"
+crossbeam-channel = "0.5"
+ed25519-dalek = { version = "2.1", default-features = false, features = ["fast"] }
+ctrlc = "3.4"
+dirs = "5"
+futures = "0.3"
+hostname = "0.4"
+if-addrs = "0.13"
+quinn = "0.11"
+rcgen = "0.13"
+rustls = { version = "0.23", default-features = false, features = ["aws-lc-rs"] }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+sha2 = "0.10"
+socket2 = { version = "0.5", features = ["all"] }
+thiserror = "2"
+tokio = { workspace = true }
+toml = "0.8"
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+uuid = { version = "1.10", features = ["v4"] }
+flume = "0.11"
+mdns-sd = "0.11"
+
+[target.'cfg(target_os = "macos")'.dependencies]
+core-foundation = "0.10"
+core-graphics = "0.25"
+dispatch = "0.1"
+foreign-types = "0.5"
+objc = "0.2"
+
+[target.'cfg(windows)'.dependencies]
+windows-sys = { version = "0.59", features = [
+    "Win32_Foundation",
+    "Win32_Security",
+    "Win32_Security_Authorization",
+    "Win32_Storage_FileSystem",
+    "Win32_System_Com",
+    "Win32_System_IO",
+    "Win32_System_Pipes",
+    "Win32_System_Registry",
+    "Win32_System_RemoteDesktop",
+    "Win32_System_Services",
+    "Win32_System_StationsAndDesktops",
+    "Win32_UI_Shell",
+    "Win32_Graphics_Gdi",
+    "Win32_Media",
+    "Win32_System_DataExchange",
+    "Win32_System_LibraryLoader",
+    "Win32_System_Threading",
+    "Win32_System_Memory",
+    "Win32_System_Power",
+    "Win32_System_Shutdown",
+    "Win32_UI_Input",
+    "Win32_UI_Input_KeyboardAndMouse",
+    "Win32_UI_WindowsAndMessaging",
+] }
+
+[target.'cfg(target_os = "linux")'.dependencies]
+ashpd = { version = "0.10", optional = true }
+reis = { version = "0.2", optional = true, features = ["tokio"] }
+wayland-client = { version = "0.31", optional = true }
+wayland-protocols = { version = "0.32", optional = true, features = ["client", "unstable"] }
+wayland-protocols-wlr = { version = "0.3", optional = true, features = ["client"] }
+x11rb = { version = "0.13", features = ["randr", "xfixes", "xinput", "xtest"] }
+
+[dev-dependencies]
+serial_test = "3"
+tempfile = "3.27.0"
+
+[[test]]
+name = "test_log_controls"
+path = "tests/logging/test_log_controls.rs"
+
+[[test]]
+name = "test_runtime_spam_controls"
+path = "tests/logging/test_runtime_spam_controls.rs"
+
+[[test]]
+name = "test_discovery_logs"
+path = "tests/logging/test_discovery_logs.rs"
+
+[[test]]
+name = "test_end_to_end_runtime_discovery_logging"
+path = "tests/logging/test_end_to_end_runtime_discovery_logging.rs"
+
+[[test]]
+name = "runtime_integration_tests"
+path = "tests/shared/runtime_integration_tests.rs"
+
+[[test]]
+name = "clipboard_integration_tests"
+path = "tests/shared/clipboard_integration_tests.rs"
+
+[[test]]
+name = "trace_replay_tests"
+path = "tests/trace_replay_tests.rs"
+
+[profile.dev]
+debug = 1
+
+[profile.test]
+debug = 1
+

@@ -1,0 +1,33 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "bundle": {
+    "icon": [
+      "icons/linux/512x512.png"
+    ],
+    "linux": {
+      "appimage": {
+        "files": {
+          "/usr/share/icons/hicolor/scalable/apps/ZeroG.svg": "icons/linux/ZeroG.svg"
+        }
+      },
+      "deb": {
+        "files": {
+          "/usr/share/icons/hicolor/scalable/apps/ZeroG.svg": "icons/linux/ZeroG.svg",
+          "/usr/share/icons/hicolor/32x32/apps/ZeroG.png": "icons/linux/32x32.png",
+          "/usr/share/icons/hicolor/64x64/apps/ZeroG.png": "icons/linux/64x64.png",
+          "/usr/share/icons/hicolor/128x128/apps/ZeroG.png": "icons/linux/128x128.png",
+          "/usr/share/icons/hicolor/256x256/apps/ZeroG.png": "icons/linux/256x256.png"
+        }
+      },
+      "rpm": {
+        "files": {
+          "/usr/share/icons/hicolor/scalable/apps/ZeroG.svg": "icons/linux/ZeroG.svg",
+          "/usr/share/icons/hicolor/32x32/apps/ZeroG.png": "icons/linux/32x32.png",
+          "/usr/share/icons/hicolor/64x64/apps/ZeroG.png": "icons/linux/64x64.png",
+          "/usr/share/icons/hicolor/128x128/apps/ZeroG.png": "icons/linux/128x128.png",
+          "/usr/share/icons/hicolor/256x256/apps/ZeroG.png": "icons/linux/256x256.png"
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,59 @@
+{
+  "source_os": "windows",
+  "description": "Windows 5-button mouse and vertical wheel scroll",
+  "events": [
+    {
+      "type": "mouse_move",
+      "x": 500,
+      "y": 400,
+      "dx": 15.0,
+      "dy": 25.0,
+      "locally_delivered": true
+    },
+    {
+      "type": "mouse_button",
+      "button": 1,
+      "pressed": true
+    },
+    {
+      "type": "mouse_button",
+      "button": 1,
+      "pressed": false
+    },
+    {
+      "type": "mouse_button",
+      "button": 2,
+      "pressed": true
+    },
+    {
+      "type": "mouse_button",
+      "button": 2,
+      "pressed": false
+    },
+    {
+      "type": "mouse_button",
+      "button": 3,
+      "pressed": true
+    },
+    {
+      "type": "mouse_button",
+      "button": 3,
+      "pressed": false
+    },
+    {
+      "type": "mouse_button",
+      "button": 4,
+      "pressed": true
+    },
+    {
+      "type": "mouse_button",
+      "button": 4,
+      "pressed": false
+    },
+    {
+      "type": "mouse_wheel",
+      "delta_x": 0,
+      "delta_y": -120
+    }
+  ]
+}

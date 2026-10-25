@@ -1,0 +1,26 @@
+{
+  "fill": {
+    "automatic-gradient": "extended-srgb:0.01961,0.02745,0.14510,1.00000"
+  },
+  "groups": [
+    {
+      "layers": [
+        {
+          "blend-mode": "normal",
+          "fill": "automatic",
+          "glass": false,
+          "hidden": false,
+          "image-name": "CursorTransfer.png",
+          "name": "Cursor Transfer",
+          "position": {
+            "scale": 1,
+            "translation-in-points": [0, 0]
+          }
+        }
+      ]
+    }
+  ],
+  "supported-platforms": {
+    "squares": "shared"
+  }
+}

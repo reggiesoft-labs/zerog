@@ -1,0 +1,27 @@
+FROM ubuntu:24.04
+
+ENV DEBIAN_FRONTEND=noninteractive
+
+RUN apt-get update && apt-get install -y \
+    build-essential \
+    curl \
+    git \
+    pkg-config \
+    libclang-dev \
+    libx11-dev \
+    libxtst-dev \
+    libxrandr-dev \
+    libxfixes-dev \
+    libxext-dev \
+    xvfb \
+    x11-utils \
+    xclip \
+    weston \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain stable
+ENV PATH="/root/.cargo/bin:${PATH}"
+
+WORKDIR /workspace
+
+CMD ["/workspace/scripts/linux-test-entrypoint.sh"]

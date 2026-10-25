@@ -1,0 +1,99 @@
+{
+  "name": "Auto-Connect Toggle for Peer Mesh",
+  "description": "Replace per-peer connect/disconnect buttons with a single toggle button that manages the entire peer mesh. When started, the system discovers and connects to all peers on the local network. When stopped, it disconnects from all peers and halts discovery/listening.",
+  "branchName": "feature/auto-connect-toggle-for-peer-mesh",
+  "userStories": [
+    {
+      "id": "STORY-001",
+      "title": "Start Toggle Button",
+      "description": "As a user I want a single \"Start\" button in the GUI So that I can begin discovering and connecting to all peers on my local network with one click",
+      "acceptanceCriteria": [
+        "AC1: A toggle button labeled \"Start\" is visible when the engine is stopped",
+        "AC2: Clicking \"Start\" initiates local network discovery (mDNS broadcast)",
+        "AC3: Each discovered peer receives one connection attempt per discovery cycle",
+        "AC4: Button label changes to \"Stop\" after successful start",
+        "AC5: Status indicator reflects \"Running\" state after start",
+        "AC6: Existing per-peer Connect/Disconnect buttons are removed or hidden"
+      ],
+      "priority": 1,
+      "passes": true,
+      "labels": [],
+      "dependsOn": [],
+      "completionNotes": "Completed by agent"
+    },
+    {
+      "id": "STORY-002",
+      "title": "Stop Toggle Button",
+      "description": "As a user I want a single \"Stop\" button when the system is running So that I can disconnect from all peers and halt discovery with one click",
+      "acceptanceCriteria": [
+        "AC1: When running, toggle button displays \"Stop\" label",
+        "AC2: Clicking \"Stop\" disconnects all currently connected peers",
+        "AC3: Discovery/listening services are stopped",
+        "AC4: Button label changes to \"Start\" after successful stop",
+        "AC5: Status indicator reflects \"Stopped\" state after stop",
+        "AC6: All peer connection state is cleared"
+      ],
+      "priority": 2,
+      "passes": true,
+      "labels": [],
+      "dependsOn": [],
+      "completionNotes": "Completed by agent"
+    },
+    {
+      "id": "STORY-003",
+      "title": "Auto-Connect to Discovered Peers",
+      "description": "As a started peer I want to automatically connect to other started peers on the same LAN So that the mesh forms without manual intervention",
+      "acceptanceCriteria": [
+        "AC1: On each discovery cycle, newly discovered peers are connected to automatically",
+        "AC2: Connection attempts are made once per discovery cycle (no persistent retry)",
+        "AC3: Failed connections are retried on the next discovery cycle, not immediately",
+        "AC4: Peer list UI shows connection status for all discovered peers",
+        "AC5: Local peer appears in peer list with \"(Local)\" designation"
+      ],
+      "priority": 3,
+      "passes": true,
+      "labels": [],
+      "dependsOn": [],
+      "completionNotes": "Completed by agent"
+    },
+    {
+      "id": "STORY-004",
+      "title": "Peer Status Display",
+      "description": "As a user I want to see which peers are discovered and their connection status So that I can verify the mesh is forming correctly",
+      "acceptanceCriteria": [
+        "AC1: Peer list shows all discovered peers with hostname and IP address",
+        "AC2: Each peer shows current connection state (connected/connecting/disconnected)",
+        "AC3: Peer list updates as peers are discovered or disappear",
+        "AC4: Last-seen timestamp is displayed for each peer",
+        "AC5: Platform type (macOS/Windows/Linux) is shown when available"
+      ],
+      "priority": 4,
+      "passes": true,
+      "labels": [],
+      "dependsOn": [],
+      "completionNotes": "Completed by agent"
+    },
+    {
+      "id": "STORY-004",
+      "title": "Peer Status Display",
+      "description": "As a user I want to see which peers are discovered and their connection status So that I can verify the mesh is forming correctly",
+      "acceptanceCriteria": [
+        "AC1: Peer list shows all discovered peers with hostname and IP address",
+        "AC2: Each peer shows current connection state (connected/connecting/disconnected)",
+        "AC3: Peer list updates as peers are discovered or disappear",
+        "AC4: Last-seen timestamp is displayed for each peer",
+        "AC5: Platform type (macOS/Windows/Linux) is shown when available"
+      ],
+      "priority": 4,
+      "passes": false,
+      "labels": [],
+      "dependsOn": []
+    }
+  ],
+  "metadata": {
+    "createdAt": "2026-03-16T04:27:59.599Z",
+    "version": "1.0.0",
+    "sourcePrd": "tasks/prd-auto-connect-toggle-for-peer-mesh.md",
+    "updatedAt": "2026-03-16T04:53:55.453Z"
+  }
+}

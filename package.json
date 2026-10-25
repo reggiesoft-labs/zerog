@@ -1,0 +1,10 @@
+{
+  "name": "mouse-thing",
+  "private": true,
+  "scripts": {
+    "dev": "npm run tauri dev --prefix gui",
+    "build": "npm run tauri build --prefix gui",
+    "release": "npm run tauri dev --prefix gui -- --no-watch",
+    "test": "cargo test --workspace && npm test --prefix gui"
+  }
+}

@@ -1,0 +1,316 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="stylesheet" href="styles.css" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>ZeroG</title>
+    <script type="module" src="/main.js" defer></script>
+  </head>
+
+  <body>
+    <header class="window-titlebar" data-tauri-drag-region>
+      <nav class="tab-nav" aria-label="Primary tabs" data-tauri-drag-region>
+        <div class="tab-nav-pill">
+          <button class="tab-btn tab-btn--active" type="button" data-tab="tab-main">Status</button>
+          <button
+            id="btn-transfers"
+            class="tab-btn"
+            type="button"
+            data-tab="tab-transfers"
+            aria-label="Transfers"
+            hidden
+            disabled
+          >
+            <span>Transfers</span>
+            <span id="transfers-active-count" class="transfers-count" aria-hidden="true" hidden></span>
+          </button>
+          <button class="tab-btn" type="button" data-tab="tab-config">
+            <span>Settings</span>
+            <span id="settings-update-badge" class="settings-update-badge" aria-hidden="true" hidden></span>
+          </button>
+        </div>
+      </nav>
+      <div class="window-controls" aria-label="Window controls">
+        <button class="window-control" type="button" data-window-action="minimize" aria-label="Minimize">−</button>
+        <button class="window-control" type="button" data-window-action="toggleMaximize" aria-label="Maximize">□</button>
+        <button class="window-control window-control--close" type="button" data-window-action="close" aria-label="Close">×</button>
+      </div>
+    </header>
+
+    <main class="app-shell">
+      <p id="error-banner" class="error-banner" hidden></p>
+      <div id="update-banner" class="update-banner" hidden>
+        <div class="update-banner-content">
+          <span class="update-banner-icon" aria-hidden="true">✨</span>
+          <span id="update-banner-text" class="update-banner-text">Update available</span>
+        </div>
+        <div class="update-banner-actions">
+          <button type="button" id="btn-banner-update" class="btn btn-primary btn--sm">Update &amp; Restart</button>
+          <button type="button" id="btn-banner-dismiss" class="btn-icon" aria-label="Dismiss">×</button>
+        </div>
+      </div>
+      <div id="transfer-toast-container" class="transfer-toast-container" aria-live="polite"></div>
+      <div id="transfer-snackbar-container" class="transfer-snackbar-container" aria-live="polite"></div>
+
+      <div class="tab-content">
+        <section id="tab-main" class="tab-pane tab-pane--active">
+          <section class="card daemon-card">
+            <div class="daemon-info">
+              <div class="daemon-status-row">
+                <span class="status-indicator-dot status-indicator-dot--stopped" id="daemon-indicator" aria-hidden="true"></span>
+                <p id="engine-running" class="value">--</p>
+              </div>
+            </div>
+            <div class="daemon-actions">
+              <button id="btn-engine-restart" class="btn btn--restart" type="button" disabled>Restart</button>
+              <button id="btn-engine-toggle" class="btn btn-primary" type="button" disabled>...</button>
+            </div>
+          </section>
+
+          <section class="panel">
+            <div class="panel-header">
+              <h2>Layout</h2>
+              <p class="config-help">
+                Drag displays to arrange your multi-machine layout.
+              </p>
+            </div>
+
+            <div id="layout-diagram" class="layout-diagram">
+              <svg
+                id="layout-svg"
+                class="layout-svg"
+                viewBox="0 0 1000 700"
+                role="application"
+                aria-label="Peer layout editor"
+              ></svg>
+            </div>
+          </section>
+
+          <section class="panel">
+            <div class="panel-header">
+              <h2>Peers</h2>
+            </div>
+            <ul id="peer-list" class="peer-list"></ul>
+          </section>
+        </section>
+
+        <section id="tab-transfers" class="tab-pane" hidden>
+          <section class="panel">
+            <div class="panel-header">
+              <h2>Transfers</h2>
+            </div>
+            <section class="transfers-section" aria-labelledby="active-transfers-title">
+              <h3 id="active-transfers-title">In progress</h3>
+              <div id="active-transfers-list" class="transfers-list"></div>
+              <p id="active-transfers-empty" class="transfers-empty">No active transfers</p>
+            </section>
+            <section class="transfers-section" aria-labelledby="recent-transfers-title">
+              <h3 id="recent-transfers-title">Recent</h3>
+              <div id="recent-transfers-list" class="transfers-list"></div>
+              <p id="recent-transfers-empty" class="transfers-empty">Completed transfers will appear here</p>
+            </section>
+          </section>
+        </section>
+
+        <section id="tab-config" class="tab-pane">
+          <section class="panel">
+            <div class="panel-header">
+              <h2>Settings</h2>
+            </div>
+
+            <form id="config-form" class="config-form">
+              <div class="settings-card">
+
+                <div class="setting-group">
+                  <div class="setting-text">
+                    <label for="auto-update-toggle" class="setting-title">Automatic updates</label>
+                    <p class="setting-help">Automatically download and prepare updates in the background.</p>
+                  </div>
+                  <label class="switch-toggle" for="auto-update-toggle">
+                    <input type="checkbox" id="auto-update-toggle" name="auto-update-toggle" checked />
+                    <span class="switch-slider"></span>
+                  </label>
+                </div>
+
+                <div class="setting-divider"></div>
+
+                <div class="setting-group">
+                  <div class="setting-text">
+                    <label for="share-clipboard" class="setting-title">Share clipboard</label>
+                    <p class="setting-help">
+                      Automatically syncs copied text across connected devices.
+                    </p>
+                  </div>
+                  <label class="switch-toggle" for="share-clipboard">
+                    <input type="checkbox" id="share-clipboard" name="share-clipboard" />
+                    <span class="switch-slider"></span>
+                  </label>
+                </div>
+
+                <div class="setting-divider"></div>
+
+                <div class="setting-group">
+                  <div class="setting-text">
+                    <label for="keep-mouse-alive" class="setting-title">Keep mouse alive</label>
+                    <p class="setting-help">
+                      Prevents system idle and sleep by subtly moving the cursor 1 pixel every 5 seconds.
+                    </p>
+                  </div>
+                  <label class="switch-toggle" for="keep-mouse-alive">
+                    <input type="checkbox" id="keep-mouse-alive" name="keep-mouse-alive" />
+                    <span class="switch-slider"></span>
+                  </label>
+                </div>
+
+                <div class="setting-divider"></div>
+
+                <div class="setting-group">
+                  <div class="setting-text">
+                    <label for="release-tap-key" class="setting-title">Release key</label>
+                    <p class="setting-help">
+                      Press 3 times quickly on this keyboard to recall the cursor from remote screens.
+                    </p>
+                  </div>
+                  <select id="release-tap-key" name="release-tap-key" class="setting-select">
+                    <option value="escape">Escape</option>
+                    <option value="pause">Pause / Break</option>
+                    <option value="insert">Insert</option>
+                    <option value="home">Home</option>
+                    <option value="end">End</option>
+                    <option value="page_up">Page Up</option>
+                    <option value="page_down">Page Down</option>
+                    <option value="f1">F1</option>
+                    <option value="f2">F2</option>
+                    <option value="f3">F3</option>
+                    <option value="f4">F4</option>
+                    <option value="f5">F5</option>
+                    <option value="f6">F6</option>
+                    <option value="f7">F7</option>
+                    <option value="f8">F8</option>
+                    <option value="f9">F9</option>
+                    <option value="f10">F10</option>
+                    <option value="f11">F11</option>
+                    <option value="f12">F12</option>
+                    <option value="grave">Backtick `</option>
+                    <option value="off">Off</option>
+                  </select>
+                </div>
+
+                <div class="setting-divider" hidden></div>
+                <div class="setting-group" hidden>
+                  <div class="setting-text">
+                    <label for="auto-accept-files" class="setting-title">Auto-accept incoming files</label>
+                    <p class="setting-help">
+                      Automatically saves incoming files into Downloads without prompting.
+                    </p>
+                  </div>
+                  <label class="switch-toggle" for="auto-accept-files">
+                    <input type="checkbox" id="auto-accept-files" name="auto-accept-files" />
+                    <span class="switch-slider"></span>
+                  </label>
+                </div>
+
+                <div class="setting-divider"></div>
+
+                <div id="windows-input-card" class="setting-group setting-group--column" hidden>
+                  <div class="setting-header-row">
+                    <div class="setting-text">
+                      <span class="setting-title">Control Windows Admin Prompts (UAC)</span>
+                      <p class="setting-help">
+                        Allows remote mouse and keyboard control when Windows asks for administrator permission.
+                      </p>
+                      <p id="windows-input-status" class="setting-help uac-status uac-status--disabled">
+                        Checking status...
+                      </p>
+                    </div>
+                    <button type="button" id="btn-win-service" class="btn btn-primary btn--win-service">Enable UAC Control</button>
+                  </div>
+                </div>
+
+                <div class="setting-divider"></div>
+
+                <div class="setting-group setting-group--column">
+                  <div class="setting-text">
+                    <label class="setting-title">Modifier Key Routing</label>
+                    <p class="setting-help">
+                      Customize how modifier keys map when routing across macOS and PC. Click a keycap to change its target.
+                    </p>
+                  </div>
+
+                  <div id="keyboard-strip-container" class="keyboard-strip-container"></div>
+
+                </div>
+              </div>
+
+              <div class="control-row config-actions">
+                <p id="config-status" class="config-status" aria-live="polite"></p>
+              </div>
+            </form>
+
+            <div class="about-card">
+              <div class="about-identity">
+                <img src="assets/icon.png" class="about-icon" width="36" height="36" alt="" aria-hidden="true" />
+                <div class="about-details">
+                  <div class="about-title-row">
+                    <span class="about-title">ZeroG</span>
+                    <span id="about-app-version" class="about-version">v1.0.1</span>
+                  </div>
+                  <a id="about-publisher-link" class="about-meta" href="https://reggiesoft.com/">By ReggieSoft</a>
+                  <p id="updater-status-text" class="about-update-status setting-help">
+                    ZeroG is up to date.
+                  </p>
+                </div>
+              </div>
+              <div class="updater-actions">
+                <div class="tooltip-wrapper">
+                  <a
+                    id="about-support-link"
+                    class="btn btn--restart about-support-link"
+                    href="https://buy.polar.sh/polar_cl_hkXxCS8cRT69c9Ag7UpdY2aKFBIsfrpCjy7Eq0BD0jE"
+                    aria-label="Support ZeroG"
+                  >
+                    <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor" aria-hidden="true">
+                      <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/>
+                    </svg>
+                  </a>
+                  <div class="mode-tooltip" role="tooltip">
+                    <strong>Support ZeroG</strong>
+                  </div>
+                </div>
+                <button type="button" id="btn-check-updates" class="btn btn--restart">Check for Updates</button>
+                <button type="button" id="btn-install-update" class="btn btn-primary" hidden>Install &amp; Restart</button>
+              </div>
+              <div id="updater-progress-container" class="updater-progress-container" hidden>
+                <div id="updater-progress-bar" class="updater-progress-bar" style="width: 0%;"></div>
+              </div>
+            </div>
+          </section>
+        </section>
+      </div>
+
+      <dialog id="pairing-dialog" class="modal-dialog" aria-labelledby="pairing-title" aria-describedby="pairing-desc">
+        <div class="modal-card">
+          <h2 id="pairing-title" class="modal-title">Pairing Request</h2>
+          <p id="pairing-desc" class="modal-desc">
+            A device wants to share mouse and keyboard control with this computer.
+          </p>
+          <div class="modal-peer-details">
+            <span id="pairing-peer-name" class="modal-peer-name">--</span>
+            <span id="pairing-peer-platform" class="modal-peer-platform"></span>
+          </div>
+          <div id="pairing-peer-code-block" class="modal-code-block">
+            <span class="modal-code-label">Compare this code with the other device</span>
+            <span id="pairing-peer-code" class="modal-code"></span>
+          </div>
+          <div class="modal-actions">
+            <button id="btn-pairing-block" class="btn btn--stop" type="button">Block</button>
+            <button id="btn-pairing-allow" class="btn btn-primary" type="button">Allow</button>
+            <button id="btn-pairing-cancel" class="btn btn--stop" type="button" hidden>Cancel request</button>
+          </div>
+        </div>
+      </dialog>
+
+    </main>
+  </body>
+</html>

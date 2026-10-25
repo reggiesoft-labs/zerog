@@ -1,0 +1,7 @@
+# Keep routine repository searches focused on source files.
+target/
+**/target/
+**/node_modules/
+**/src-tauri/gen/
+Cargo.lock
+**/package-lock.json

@@ -1,0 +1,9 @@
+[advisories]
+# quick-xml is only reached through build-time codegen:
+#   * wayland-scanner (proc-macro) parses vendored protocol XML at compile time
+#   * plist is used by tauri-codegen to write the app's own Info.plist
+# No XML from the network, or from a file we do not ship, is parsed at runtime.
+ignore = [
+    "RUSTSEC-2026-0194",
+    "RUSTSEC-2026-0195",
+]

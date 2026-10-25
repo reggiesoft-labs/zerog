@@ -1,0 +1,30 @@
+# Ensure Linux builds use system toolchain defaults even if an active Conda or
+# custom environment exports target compiler flags pointing to non-existent toolchains.
+[env]
+CC_x86_64_unknown_linux_gnu = { value = "/usr/bin/cc", force = true }
+CXX_x86_64_unknown_linux_gnu = { value = "/usr/bin/c++", force = true }
+AR_x86_64_unknown_linux_gnu = { value = "/usr/bin/ar", force = true }
+CFLAGS_x86_64_unknown_linux_gnu = { value = "", force = true }
+CXXFLAGS_x86_64_unknown_linux_gnu = { value = "", force = true }
+LDFLAGS_x86_64_unknown_linux_gnu = { value = "", force = true }
+
+CC_aarch64_unknown_linux_gnu = { value = "/usr/bin/cc", force = true }
+CXX_aarch64_unknown_linux_gnu = { value = "/usr/bin/c++", force = true }
+AR_aarch64_unknown_linux_gnu = { value = "/usr/bin/ar", force = true }
+CFLAGS_aarch64_unknown_linux_gnu = { value = "", force = true }
+CXXFLAGS_aarch64_unknown_linux_gnu = { value = "", force = true }
+LDFLAGS_aarch64_unknown_linux_gnu = { value = "", force = true }
+
+[target.x86_64-unknown-linux-gnu]
+linker = "/usr/bin/cc"
+rustflags = ["-L", "/usr/lib64", "-L", "/usr/lib/x86_64-linux-gnu", "-L", "/usr/lib"]
+
+[target.aarch64-unknown-linux-gnu]
+linker = "/usr/bin/cc"
+rustflags = ["-L", "/usr/lib64", "-L", "/usr/lib/aarch64-linux-gnu", "-L", "/usr/lib"]
+
+[target.aarch64-apple-darwin]
+runner = ["sh", "-c", "codesign --force --sign - --identifier com.reggiesoft.zerog \"$1\" >/dev/null 2>&1 || true; exec \"$@\"", "--"]
+
+[target.x86_64-apple-darwin]
+runner = ["sh", "-c", "codesign --force --sign - --identifier com.reggiesoft.zerog \"$1\" >/dev/null 2>&1 || true; exec \"$@\"", "--"]

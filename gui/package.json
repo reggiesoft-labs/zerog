@@ -1,0 +1,17 @@
+{
+  "name": "gui",
+  "private": true,
+  "version": "1.0.1",
+  "type": "module",
+  "scripts": {
+    "dev": "tauri dev",
+    "build": "tauri build",
+    "test": "vitest run",
+    "tauri": "tauri"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "^2.11.5",
+    "happy-dom": "^20.8.4",
+    "vitest": "^3.2.4"
+  }
+}

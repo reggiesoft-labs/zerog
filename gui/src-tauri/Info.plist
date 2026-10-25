@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>CFBundleIdentifier</key>
+    <string>com.reggiesoft.zerog</string>
+    <key>NSLocalNetworkUsageDescription</key>
+    <string>ZeroG finds and connects to your other computers to share your mouse and keyboard on your local network.</string>
+    <key>NSBonjourServices</key>
+    <array>
+        <string>_zerog._udp</string>
+    </array>
+</dict>
+</plist>

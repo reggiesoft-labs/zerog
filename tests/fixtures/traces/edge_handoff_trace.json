@@ -1,0 +1,24 @@
+{
+  "source_os": "cross_platform",
+  "description": "Control handoff with keyboard key press and release",
+  "events": [
+    {
+      "type": "key_press",
+      "keycode": 30
+    },
+    {
+      "type": "key_release",
+      "keycode": 30
+    },
+    {
+      "type": "mouse_button",
+      "button": 0,
+      "pressed": true
+    },
+    {
+      "type": "mouse_button",
+      "button": 0,
+      "pressed": false
+    }
+  ]
+}

@@ -1,0 +1,372 @@
+name: Build Desktop App
+
+on:
+  workflow_dispatch:
+    inputs:
+      r2_test:
+        description: Build platform bundles, verify R2 staging, and delete the test files
+        required: false
+        type: boolean
+        default: false
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  deterministic-tests:
+    name: Deterministic Tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache Rust artifacts
+        uses: Swatinem/rust-cache@v2
+
+      - name: Install frontend dependencies
+        run: npm install
+        working-directory: gui
+
+      - name: Core module unit tests
+        run: cargo test -p mouse-thing --lib
+
+      - name: Trace replay integration tests
+        run: cargo test -p mouse-thing --test trace_replay_tests
+
+      - name: Process lifecycle test
+        run: cargo test -p mouse-thing --test process_runtime_tests controller_processes_connect_reconnect_and_shutdown -- --exact --test-threads=1
+
+      - name: Frontend unit tests
+        run: npm test
+        working-directory: gui
+
+  build:
+    name: Build ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        os:
+          - macos-latest
+          - windows-latest
+          - ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install Linux build dependencies
+        if: matrix.os == 'ubuntu-latest'
+        run: sudo apt-get update && sudo apt-get install -y libwebkit2gtk-4.1-dev libgtk-3-dev libayatana-appindicator3-dev librsvg2-dev patchelf rpm
+
+      - name: Cache Rust artifacts
+        uses: Swatinem/rust-cache@v2
+
+      - name: Install frontend dependencies
+        run: npm install
+        working-directory: gui
+
+      - name: Build Tauri bundles
+        run: npm run tauri build
+        working-directory: gui
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+          NO_STRIP: ${{ matrix.os == 'ubuntu-latest' && 'true' || '' }}
+
+      - name: Validate bundle output paths
+        shell: pwsh
+        run: |
+          if (Test-Path "target/release/bundle") {
+            Write-Host "Detected bundle output at target/release/bundle"
+            Get-ChildItem -Path "target/release/bundle" -Recurse | Select-Object FullName
+          } else {
+            Write-Error "Bundle directory target/release/bundle not found"
+          }
+
+      - name: Upload macOS bundles to R2 staging
+        if: matrix.os == 'macos-latest' && (startsWith(github.ref, 'refs/tags/v') || (github.event_name == 'workflow_dispatch' && inputs.r2_test == true))
+        shell: bash
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: auto
+          R2_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
+          R2_BUCKET_NAME: ${{ secrets.R2_BUCKET_NAME || 'zerog-downloads' }}
+          TAG_NAME: ${{ github.ref_name }}
+        run: |
+          STAGING_PATH="zerog/staging/${TAG_NAME}/${GITHUB_RUN_ID}/macos"
+          ENDPOINT_URL="https://${R2_ACCOUNT_ID}.r2.cloudflarestorage.com"
+          aws s3 rm "s3://${R2_BUCKET_NAME}/${STAGING_PATH}/" --recursive --endpoint-url "$ENDPOINT_URL"
+          aws s3 sync target/release/bundle/ "s3://${R2_BUCKET_NAME}/${STAGING_PATH}/" --endpoint-url "$ENDPOINT_URL" --exclude "*" --include "dmg/*.dmg" --include "macos/*.tar.gz*"
+
+      - name: Upload Windows bundles to R2 staging
+        if: matrix.os == 'windows-latest' && (startsWith(github.ref, 'refs/tags/v') || (github.event_name == 'workflow_dispatch' && inputs.r2_test == true))
+        shell: bash
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: auto
+          R2_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
+          R2_BUCKET_NAME: ${{ secrets.R2_BUCKET_NAME || 'zerog-downloads' }}
+          TAG_NAME: ${{ github.ref_name }}
+        run: |
+          STAGING_PATH="zerog/staging/${TAG_NAME}/${GITHUB_RUN_ID}/windows"
+          ENDPOINT_URL="https://${R2_ACCOUNT_ID}.r2.cloudflarestorage.com"
+          aws s3 rm "s3://${R2_BUCKET_NAME}/${STAGING_PATH}/" --recursive --endpoint-url "$ENDPOINT_URL"
+          aws s3 sync target/release/bundle/nsis/ "s3://${R2_BUCKET_NAME}/${STAGING_PATH}/" --endpoint-url "$ENDPOINT_URL" --exclude "*" --include "*.exe*" --include "*.zip*"
+
+      - name: Upload Linux bundles to R2 staging
+        if: matrix.os == 'ubuntu-latest' && (startsWith(github.ref, 'refs/tags/v') || (github.event_name == 'workflow_dispatch' && inputs.r2_test == true))
+        shell: bash
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: auto
+          R2_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
+          R2_BUCKET_NAME: ${{ secrets.R2_BUCKET_NAME || 'zerog-downloads' }}
+          TAG_NAME: ${{ github.ref_name }}
+        run: |
+          STAGING_PATH="zerog/staging/${TAG_NAME}/${GITHUB_RUN_ID}/linux"
+          ENDPOINT_URL="https://${R2_ACCOUNT_ID}.r2.cloudflarestorage.com"
+          aws s3 rm "s3://${R2_BUCKET_NAME}/${STAGING_PATH}/" --recursive --endpoint-url "$ENDPOINT_URL"
+          aws s3 sync target/release/bundle/ "s3://${R2_BUCKET_NAME}/${STAGING_PATH}/" --endpoint-url "$ENDPOINT_URL" --exclude "*" --include "deb/*.deb" --include "rpm/*.rpm" --include "appimage/*.AppImage*" --include "appimage/*.tar.gz*"
+
+  linux-checks:
+    name: Linux checks (${{ matrix.label }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - label: default-features
+            cargo_args: ""
+          - label: x11-only
+            cargo_args: "--no-default-features --features linux-x11"
+          - label: wayland-only
+            cargo_args: "--no-default-features --features linux-wayland"
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Add Linux target
+        run: rustup target add x86_64-unknown-linux-gnu
+
+      - name: Cache Rust artifacts
+        uses: Swatinem/rust-cache@v2
+
+      - name: Linux compile check
+        run: cargo check -p mouse-thing --target x86_64-unknown-linux-gnu ${{ matrix.cargo_args }}
+
+      - name: Linux unit tests
+        if: matrix.label == 'default-features'
+        run: cargo test -p mouse-thing --lib --bins
+
+  security-audit:
+    name: Security Audit
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install cargo-audit
+        uses: taiki-e/install-action@cargo-audit
+
+      - name: Audit Rust dependencies
+        run: cargo audit
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install frontend dependencies
+        run: npm ci
+        working-directory: gui
+
+      - name: Audit frontend dependencies
+        run: npm audit --omit=dev --audit-level=high
+        working-directory: gui
+
+      - name: Report dev-only frontend advisories
+        run: npm audit
+        working-directory: gui
+        continue-on-error: true
+
+  publish-release:
+    name: Publish Release
+    runs-on: ubuntu-latest
+    needs: [build, deterministic-tests, security-audit]
+    if: startsWith(github.ref, 'refs/tags/v') && !(github.event_name == 'workflow_dispatch' && inputs.r2_test == true)
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Download build outputs from R2 staging
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: auto
+          R2_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
+          R2_BUCKET_NAME: ${{ secrets.R2_BUCKET_NAME || 'zerog-downloads' }}
+        run: |
+          ENDPOINT_URL="https://${R2_ACCOUNT_ID}.r2.cloudflarestorage.com"
+          STAGING_PATH="zerog/staging/${GITHUB_REF_NAME}/${GITHUB_RUN_ID}"
+          aws s3 sync "s3://${R2_BUCKET_NAME}/${STAGING_PATH}/" artifacts/ --endpoint-url "$ENDPOINT_URL"
+
+      - name: Organize release assets
+        run: |
+          mkdir -p dist
+          find artifacts -type f \( -name "*.dmg*" -o -name "*.exe*" -o -name "*.deb" -o -name "*.rpm" -o -name "*.AppImage*" -o -name "*.tar.gz*" -o -name "*.zip*" -o -name "latest.json" \) -exec cp {} dist/ \;
+
+      - name: Generate latest.json updater manifest
+        env:
+          TAG_NAME: ${{ github.ref_name }}
+          REPO_NAME: ${{ github.repository }}
+        run: |
+          python3 - << 'EOF'
+          import glob, json, os, datetime
+
+          tag = os.environ.get("TAG_NAME", "")
+          version = tag.lstrip("v")
+          base_url = "https://downloads.reggiesoft.com/zerog/latest"
+
+          platforms = {}
+
+          def add_platform(key, file_pattern, sig_pattern):
+              files = sorted(glob.glob(file_pattern))
+              sigs = sorted(glob.glob(sig_pattern))
+              if files and sigs:
+                  filename = os.path.basename(files[0])
+                  with open(sigs[0], "r", encoding="utf-8") as f:
+                      sig = f.read().strip()
+                  platforms[key] = {
+                      "url": f"{base_url}/{filename}",
+                      "signature": sig
+                  }
+
+          # macOS (arm64)
+          add_platform("darwin-aarch64", "dist/*.app.tar.gz", "dist/*.app.tar.gz.sig")
+
+          # Linux (x86_64) - check AppImage or tar.gz
+          if glob.glob("dist/*.AppImage") and glob.glob("dist/*.AppImage.sig"):
+              add_platform("linux-x86_64", "dist/*.AppImage", "dist/*.AppImage.sig")
+          elif glob.glob("dist/*.tar.gz") and glob.glob("dist/*.tar.gz.sig"):
+              add_platform("linux-x86_64", "dist/*.tar.gz", "dist/*.tar.gz.sig")
+
+          # Windows (x86_64) - check .nsis.zip or setup.exe
+          if glob.glob("dist/*.nsis.zip") and glob.glob("dist/*.nsis.zip.sig"):
+              add_platform("windows-x86_64", "dist/*.nsis.zip", "dist/*.nsis.zip.sig")
+          elif glob.glob("dist/*setup.exe") and glob.glob("dist/*setup.exe.sig"):
+              add_platform("windows-x86_64", "dist/*setup.exe", "dist/*setup.exe.sig")
+
+          manifest = {
+              "version": version,
+              "notes": f"ZeroG {tag} release",
+              "pub_date": datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+              "platforms": platforms
+          }
+
+          print("Generated latest.json:")
+          print(json.dumps(manifest, indent=2))
+
+          with open("dist/latest.json", "w", encoding="utf-8") as f:
+              json.dump(manifest, f, indent=2)
+          EOF
+
+      - name: Compute checksums
+        run: |
+          cd dist
+          sha256sum * > SHA256SUMS.txt
+          ls -la
+
+      - name: Publish GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/*
+          generate_release_notes: true
+          draft: false
+          prerelease: false
+          make_latest: true
+
+      - name: Upload latest release to Cloudflare R2
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: auto
+          R2_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
+          R2_BUCKET_NAME: ${{ secrets.R2_BUCKET_NAME || 'zerog-downloads' }}
+          TAG_NAME: ${{ github.ref_name }}
+        run: |
+          ENDPOINT_URL="https://${R2_ACCOUNT_ID}.r2.cloudflarestorage.com"
+          R2_ROOT="s3://${R2_BUCKET_NAME}/zerog"
+          aws s3 sync dist/ "${R2_ROOT}/latest/" --delete --endpoint-url "$ENDPOINT_URL"
+          aws s3 cp dist/latest.json "${R2_ROOT}/latest.json" --endpoint-url "$ENDPOINT_URL"
+          aws s3 rm "${R2_ROOT}/" --recursive --exclude "latest/*" --exclude "latest.json" --exclude "staging/*" --endpoint-url "$ENDPOINT_URL"
+
+  cleanup-r2-staging:
+    name: Clean R2 staging
+    runs-on: ubuntu-latest
+    needs: [build, publish-release]
+    if: always() && (startsWith(github.ref, 'refs/tags/v') || (github.event_name == 'workflow_dispatch' && inputs.r2_test == true))
+    steps:
+      - name: Verify R2 staging downloads
+        if: needs.build.result == 'success' && github.event_name == 'workflow_dispatch' && inputs.r2_test == true
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: auto
+          R2_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
+          R2_BUCKET_NAME: ${{ secrets.R2_BUCKET_NAME || 'zerog-downloads' }}
+        run: |
+          ENDPOINT_URL="https://${R2_ACCOUNT_ID}.r2.cloudflarestorage.com"
+          STAGING_PATH="zerog/staging/${GITHUB_REF_NAME}/${GITHUB_RUN_ID}"
+          aws s3 sync "s3://${R2_BUCKET_NAME}/${STAGING_PATH}/" r2-check/ --endpoint-url "$ENDPOINT_URL"
+          test -n "$(find r2-check/macos -type f -print -quit)"
+          test -n "$(find r2-check/windows -type f -print -quit)"
+          test -n "$(find r2-check/linux -type f -print -quit)"
+
+      - name: Remove this run's staging files
+        if: always()
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: auto
+          R2_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
+          R2_BUCKET_NAME: ${{ secrets.R2_BUCKET_NAME || 'zerog-downloads' }}
+          TAG_NAME: ${{ github.ref_name }}
+        run: |
+          ENDPOINT_URL="https://${R2_ACCOUNT_ID}.r2.cloudflarestorage.com"
+          STAGING_PATH="s3://${R2_BUCKET_NAME}/zerog/staging/${TAG_NAME}/${GITHUB_RUN_ID}"
+          aws s3 rm "${STAGING_PATH}/" --recursive --endpoint-url "$ENDPOINT_URL"

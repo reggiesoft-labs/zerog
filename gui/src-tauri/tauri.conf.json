@@ -1,0 +1,64 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "ZeroG",
+  "mainBinaryName": "ZeroG",
+  "version": "1.0.1",
+  "identifier": "com.reggiesoft.zerog",
+  "build": {
+    "frontendDist": "../src"
+  },
+  "app": {
+    "withGlobalTauri": true,
+    "windows": [
+      {
+        "title": "ZeroG",
+        "width": 800,
+        "height": 780,
+        "theme": "Dark",
+        "visible": false,
+        "titleBarStyle": "Overlay",
+        "hiddenTitle": true,
+        "trafficLightPosition": {
+          "x": 18,
+          "y": 18
+        }
+      }
+    ],
+    "security": {
+      "csp": "default-src 'self'"
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": ["deb", "rpm", "appimage", "nsis", "dmg", "app"],
+    "createUpdaterArtifacts": true,
+    "category": "Utility",
+    "shortDescription": "Seamless mouse and keyboard sharing across LAN machines.",
+    "longDescription": "ZeroG shares one mouse and keyboard across multiple computers on the same LAN, transferring control at configured screen edges over QUIC with mDNS discovery.",
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.icns",
+      "icons/icon.ico"
+    ],
+    "macOS": {
+      "entitlements": "Entitlements.plist"
+    },
+    "windows": {
+      "nsis": {
+        "installMode": "perMachine",
+        "installerHooks": "hooks.nsh"
+      }
+    }
+  },
+  "plugins": {
+    "updater": {
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEM5NUFCM0ZGMjc1RTI3OUIKUldTYkoxNG4vN05heVhwWFFKTFRGd0RvTkpVdFJQUzROL0FjU2dod2QrTHdNS1JaTUpZeENUTlgK",
+      "endpoints": [
+        "https://downloads.reggiesoft.com/zerog/latest.json",
+        "https://github.com/reggiesoft-labs/zerog/releases/latest/download/latest.json"
+      ]
+    }
+  }
+}

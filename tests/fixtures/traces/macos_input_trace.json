@@ -1,0 +1,29 @@
+{
+  "source_os": "macos",
+  "description": "macOS smooth trackpad scrolling and clicks",
+  "events": [
+    {
+      "type": "mouse_move",
+      "x": 200,
+      "y": 200,
+      "dx": 3.0,
+      "dy": 4.0,
+      "locally_delivered": true
+    },
+    {
+      "type": "mouse_button",
+      "button": 0,
+      "pressed": true
+    },
+    {
+      "type": "mouse_button",
+      "button": 0,
+      "pressed": false
+    },
+    {
+      "type": "mouse_wheel",
+      "delta_x": -60,
+      "delta_y": 120
+    }
+  ]
+}
