@@ -1642,7 +1642,7 @@ dependencies = [
 
 [[package]]
 name = "gui"
-version = "1.0.1"
+version = "1.0.2"
 dependencies = [
  "anyhow",
  "ctrlc",
@@ -2422,7 +2422,7 @@ dependencies = [
 
 [[package]]
 name = "mouse-thing"
-version = "1.0.1"
+version = "1.0.2"
 dependencies = [
  "anyhow",
  "ashpd",
