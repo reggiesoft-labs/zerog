@@ -39,7 +39,9 @@ Also available on the official website: [reggiesoft.com/zerog](https://reggiesof
 
 ## Platform Permissions
 
-* **macOS**: Requires granting **Accessibility** permissions under *System Settings > Privacy & Security > Accessibility* so ZeroG can capture and move your cursor across edges.
+* **macOS**:
+  * **First Launch (macOS Sequoia & Gatekeeper)**: Drag ZeroG to Applications. If blocked on first open, go to *System Settings → Privacy & Security*, scroll down to Security, and click **Open Anyway**.
+  * **Permissions**: Requires granting **Accessibility** permissions under *System Settings → Privacy & Security → Accessibility* so ZeroG can capture and move your cursor across edges.
 * **Windows**: Works out of the box with standard user privileges.
 * **Linux**: Automatically selects native Wayland portal input or X11 depending on your desktop environment.
 

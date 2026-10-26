@@ -3,7 +3,7 @@ script_dir="$(cd "$(dirname "$0")" && pwd)"
 repo_root="$(cd "$script_dir/../.." && pwd)"
 
 sign_binaries() {
-    for bin in "$repo_root/target/debug/ZeroG" "$repo_root/target/release/ZeroG"; do
+    for bin in "$repo_root/target/debug/ZeroG" "$repo_root/target/release/ZeroG" "$repo_root/target/universal-apple-darwin/debug/ZeroG" "$repo_root/target/universal-apple-darwin/release/ZeroG"; do
         if [ -f "$bin" ]; then
             codesign --force --sign - --identifier com.reggiesoft.zerog "$bin" >/dev/null 2>&1 || true
         fi
