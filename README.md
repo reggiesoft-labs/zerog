@@ -22,6 +22,14 @@ Download the latest version for your platform from the [GitHub Releases](https:/
 | **Linux (Fedora/RHEL)** | [ZeroG (.rpm)](https://github.com/reggiesoft-labs/zerog/releases/latest) | Fedora, openSUSE, RHEL |
 | **Linux (Universal)** | [ZeroG (.AppImage)](https://github.com/reggiesoft-labs/zerog/releases/latest) | Standalone portable bundle |
 
+### macOS (Homebrew)
+
+Install via Homebrew:
+
+```bash
+brew install reggiesoft-labs/tap/zerog
+```
+
 Also available on the official website: [reggiesoft.com/zerog](https://reggiesoft.com/zerog/).
 
 ---
@@ -44,14 +52,6 @@ Also available on the official website: [reggiesoft.com/zerog](https://reggiesof
   * **Permissions**: Requires granting **Accessibility** permissions under *System Settings → Privacy & Security → Accessibility* so ZeroG can capture and move your cursor across edges.
 * **Windows**: Works out of the box with standard user privileges.
 * **Linux**: Automatically selects native Wayland portal input or X11 depending on your desktop environment.
-
----
-
-## Support ZeroG & Reggie
-
-ZeroG is completely free and open-source. If it improves your workflow, you can support development and help buy treats for **Reggie** (the Chief Feline Officer of ReggieSoft):
-
-👉 **[Support ZeroG on Polar](https://buy.polar.sh/polar_cl_hkXxCS8cRT69c9Ag7UpdY2aKFBIsfrpCjy7Eq0BD0jE)**
 
 ---
 
