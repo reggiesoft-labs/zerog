@@ -105,15 +105,10 @@ jobs:
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
           NO_STRIP: ${{ matrix.os == 'ubuntu-latest' && 'true' || '' }}
 
-      - name: Sign and verify macOS bundles
+      - name: Verify macOS app bundle signature
         if: matrix.os == 'macos-latest'
         shell: bash
         run: |
-          for dmg in target/release/bundle/dmg/*.dmg; do
-            if [ -f "$dmg" ]; then
-              codesign --force --sign - "$dmg"
-            fi
-          done
           if [ -d "target/release/bundle/macos/ZeroG.app" ]; then
             codesign --verify --deep --strict --verbose=4 "target/release/bundle/macos/ZeroG.app"
           fi
