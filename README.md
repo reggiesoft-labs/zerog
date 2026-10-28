@@ -30,7 +30,6 @@ Install via Homebrew:
 brew install reggiesoft-labs/tap/zerog
 ```
 
-Also available on the official website: [reggiesoft.com/zerog](https://reggiesoft.com/zerog/).
 
 ---
 
