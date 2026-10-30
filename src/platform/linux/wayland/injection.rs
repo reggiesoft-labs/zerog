@@ -21,6 +21,8 @@ use super::super::x11::injection::X11EventInjection;
 use super::session;
 
 #[cfg(feature = "linux-wayland")]
+use super::kwin::KWinEffectsManager;
+#[cfg(feature = "linux-wayland")]
 use super::libei_injection::LibeiInjection;
 
 enum InjectionBackend {
@@ -33,41 +35,41 @@ enum InjectionBackend {
 /// Wayland event injection implementation.
 pub(crate) struct WaylandEventInjection {
     backend: InjectionBackend,
+    #[cfg(feature = "linux-wayland")]
+    kwin: KWinEffectsManager,
 }
 
 impl WaylandEventInjection {
     pub(crate) fn new() -> Self {
-        // When the linux-wayland feature is available, try native libei first.
+        Self {
+            backend: Self::init_backend(),
+            #[cfg(feature = "linux-wayland")]
+            kwin: KWinEffectsManager::new(),
+        }
+    }
+
+    fn init_backend() -> InjectionBackend {
         #[cfg(feature = "linux-wayland")]
-        {
-            match LibeiInjection::new() {
-                Ok(libei) => {
-                    tracing::info!("Wayland injection: using native libei (RemoteDesktop portal)");
-                    return Self {
-                        backend: InjectionBackend::NativeLibei(libei),
-                    };
-                }
-                Err(e) => {
-                    tracing::warn!(
-                        "Wayland injection: native libei unavailable ({e:#}); trying XWayland fallback"
-                    );
-                }
+        match LibeiInjection::new() {
+            Ok(libei) => {
+                tracing::info!("Wayland injection: using native libei (RemoteDesktop portal)");
+                return InjectionBackend::NativeLibei(libei);
+            }
+            Err(e) => {
+                tracing::warn!(
+                    "Wayland injection: native libei unavailable ({e:#}); trying XWayland fallback"
+                );
             }
         }
 
-        // Fall back to XWayland if available.
         let probe = session::probe_wayland_support();
         if probe.xwayland_fallback_available {
             tracing::info!("Wayland injection: using XWayland fallback");
-            return Self {
-                backend: InjectionBackend::XWayland(X11EventInjection::new()),
-            };
+            return InjectionBackend::XWayland(X11EventInjection::new());
         }
 
         tracing::warn!("Wayland injection: no backend available");
-        Self {
-            backend: InjectionBackend::Unavailable,
-        }
+        InjectionBackend::Unavailable
     }
 
     fn unavailable_error() -> anyhow::Error {
@@ -134,6 +136,9 @@ impl EventInjection for WaylandEventInjection {
     }
 
     fn set_cursor_hidden(&self, hidden: bool) -> Result<()> {
+        #[cfg(feature = "linux-wayland")]
+        self.kwin.set_hidden(hidden);
+
         match &self.backend {
             #[cfg(feature = "linux-wayland")]
             InjectionBackend::NativeLibei(inner) => inner.set_cursor_hidden(hidden),

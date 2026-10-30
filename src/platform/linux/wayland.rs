@@ -12,6 +12,8 @@ pub(crate) mod clipboard;
 pub(crate) mod display;
 pub(crate) mod injection;
 #[cfg(feature = "linux-wayland")]
+pub(crate) mod kwin;
+#[cfg(feature = "linux-wayland")]
 pub(crate) mod libei_capture;
 #[cfg(feature = "linux-wayland")]
 pub(crate) mod libei_injection;
