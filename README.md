@@ -82,10 +82,6 @@ cd gui
 npm run tauri build
 ```
 
-### Protocol & Architecture
-
-ZeroG communicates peer-to-peer over local UDP using QUIC for reliable, encrypted input transport and mDNS for automatic zero-configuration discovery (`_zerog._udp.local.`).
-
 ---
 
 ## License
