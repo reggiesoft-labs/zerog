@@ -24,25 +24,30 @@ Download the latest version for your platform from the [GitHub Releases](https:/
 
 ### macOS (Homebrew)
 
-Add the ZeroG tap first:
+ZeroG ships as a cask from a third-party tap. Recent Homebrew versions no longer tap repositories implicitly, so add the tap first:
 
 ```bash
 brew tap reggiesoft-labs/tap
 ```
 
-Then install ZeroG:
+Then install using the fully qualified cask name, which trusts only that cask:
 
 ```bash
-brew install zerog
+brew install --cask reggiesoft-labs/tap/zerog
+```
+
+Alternatively, trust the cask and use its short name:
+
+```bash
+brew trust --cask reggiesoft-labs/tap/zerog
+brew install --cask zerog
 ```
 
 To upgrade later:
 
 ```bash
-brew upgrade zerog
+brew upgrade --cask zerog
 ```
-
-The one-liner `brew install reggiesoft-labs/tap/zerog` also works, since Homebrew taps the repository automatically.
 
 Also available on the official website: [reggiesoft.com/zerog](https://reggiesoft.com/zerog).
 
