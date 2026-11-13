@@ -1,4 +1,4 @@
-use mouse_thing::logging::{
+use zerog::logging::{
     LogPreset, LogRateLimiter, RateLimitPolicy, RollupLevel, RuntimeDiscoveryLoggingConfig,
     subscriber_for_config_with_writer,
 };
@@ -59,7 +59,7 @@ fn normal_preset_suppresses_high_frequency_trace_ticks() {
     tracing::subscriber::with_default(subscriber, || {
         for tick in 0..100 {
             tracing::trace!(
-                target: "mouse_thing::platform::shared::runtime_threads",
+                target: "zerog::platform::shared::runtime_threads",
                 domain = "runtime.input",
                 tick,
                 "runtime input tick"
@@ -80,7 +80,7 @@ fn transition_sequence_logs_once_per_state_change_at_default_visibility() {
 
     tracing::subscriber::with_default(subscriber, || {
         tracing::info!(
-            target: "mouse_thing::platform::shared::runtime_threads",
+            target: "zerog::platform::shared::runtime_threads",
             domain = "runtime.transition",
             transition_key = "state_change",
             from = "Idle",
@@ -88,7 +88,7 @@ fn transition_sequence_logs_once_per_state_change_at_default_visibility() {
             "runtime state transition"
         );
         tracing::info!(
-            target: "mouse_thing::platform::shared::runtime_threads",
+            target: "zerog::platform::shared::runtime_threads",
             domain = "runtime.transition",
             transition_key = "state_change",
             from = "Connected",
@@ -96,7 +96,7 @@ fn transition_sequence_logs_once_per_state_change_at_default_visibility() {
             "runtime state transition"
         );
         tracing::info!(
-            target: "mouse_thing::platform::shared::runtime_threads",
+            target: "zerog::platform::shared::runtime_threads",
             domain = "runtime.transition",
             transition_key = "state_change",
             from = "Active",
@@ -127,7 +127,7 @@ fn repeated_failures_are_rate_limited_and_report_suppressed_counts() {
             let decision = limiter.evaluate_at("recoverable_warning", policy, start_ms);
             if decision.emit_now {
                 tracing::warn!(
-                    target: "mouse_thing::platform::shared::runtime_threads",
+                    target: "zerog::platform::shared::runtime_threads",
                     domain = "runtime.health",
                     warning_key = "recoverable_warning",
                     suppressed_since_last = decision.suppressed_since_last_emit,
@@ -141,14 +141,14 @@ fn repeated_failures_are_rate_limited_and_report_suppressed_counts() {
         if let Some(rollup) = rollover.rollup {
             match rollup.level {
                 RollupLevel::Info => tracing::info!(
-                    target: "mouse_thing::platform::shared::runtime_threads",
+                    target: "zerog::platform::shared::runtime_threads",
                     domain = "runtime.health",
                     warning_key = "recoverable_warning",
                     suppressed = rollup.suppressed,
                     "suppressed recurring warnings"
                 ),
                 RollupLevel::Debug => tracing::debug!(
-                    target: "mouse_thing::platform::shared::runtime_threads",
+                    target: "zerog::platform::shared::runtime_threads",
                     domain = "runtime.health",
                     warning_key = "recoverable_warning",
                     suppressed = rollup.suppressed,

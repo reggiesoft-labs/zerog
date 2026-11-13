@@ -1646,7 +1646,6 @@ version = "1.0.3"
 dependencies = [
  "anyhow",
  "ctrlc",
- "mouse-thing",
  "serde",
  "serde_json",
  "tauri",
@@ -1656,6 +1655,7 @@ dependencies = [
  "tauri-plugin-updater",
  "tokio",
  "windows-sys 0.59.0",
+ "zerog",
 ]
 
 [[package]]
@@ -2418,52 +2418,6 @@ dependencies = [
  "libc",
  "wasi",
  "windows-sys 0.61.2",
-]
-
-[[package]]
-name = "mouse-thing"
-version = "1.0.3"
-dependencies = [
- "anyhow",
- "ashpd",
- "base64 0.22.1",
- "bincode",
- "bytes",
- "core-foundation 0.10.1",
- "core-graphics",
- "crossbeam-channel",
- "ctrlc",
- "dirs 5.0.1",
- "dispatch",
- "ed25519-dalek",
- "flume",
- "foreign-types",
- "futures",
- "hostname",
- "if-addrs",
- "mdns-sd",
- "objc",
- "quinn",
- "rcgen",
- "reis",
- "rustls",
- "serde",
- "serde_json",
- "serial_test",
- "sha2",
- "socket2 0.5.10",
- "tempfile",
- "thiserror 2.0.18",
- "tokio",
- "toml 0.8.2",
- "tracing",
- "tracing-subscriber",
- "uuid",
- "wayland-client",
- "wayland-protocols",
- "wayland-protocols-wlr",
- "windows-sys 0.59.0",
- "x11rb",
 ]
 
 [[package]]
@@ -6523,6 +6477,52 @@ dependencies = [
  "quote",
  "syn 2.0.117",
  "synstructure",
+]
+
+[[package]]
+name = "zerog"
+version = "1.0.3"
+dependencies = [
+ "anyhow",
+ "ashpd",
+ "base64 0.22.1",
+ "bincode",
+ "bytes",
+ "core-foundation 0.10.1",
+ "core-graphics",
+ "crossbeam-channel",
+ "ctrlc",
+ "dirs 5.0.1",
+ "dispatch",
+ "ed25519-dalek",
+ "flume",
+ "foreign-types",
+ "futures",
+ "hostname",
+ "if-addrs",
+ "mdns-sd",
+ "objc",
+ "quinn",
+ "rcgen",
+ "reis",
+ "rustls",
+ "serde",
+ "serde_json",
+ "serial_test",
+ "sha2",
+ "socket2 0.5.10",
+ "tempfile",
+ "thiserror 2.0.18",
+ "tokio",
+ "toml 0.8.2",
+ "tracing",
+ "tracing-subscriber",
+ "uuid",
+ "wayland-client",
+ "wayland-protocols",
+ "wayland-protocols-wlr",
+ "windows-sys 0.59.0",
+ "x11rb",
 ]
 
 [[package]]

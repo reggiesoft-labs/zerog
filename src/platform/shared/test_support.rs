@@ -99,7 +99,7 @@ pub fn with_temp_home<T>(f: impl FnOnce() -> T) -> T {
         .unwrap_or_default()
         .as_nanos();
     let temp_home = std::env::temp_dir().join(format!(
-        "mouse-thing-test-home-{}-{nonce}",
+        "zerog-test-home-{}-{nonce}",
         std::process::id()
     ));
     let appdata = temp_home.join("AppData").join("Roaming");
@@ -708,7 +708,7 @@ pub fn reserve_local_port() -> Result<u16> {
 }
 
 fn default_runtime_config(listen_port: u16, peer_id: &str) -> RuntimeConfig {
-    let cert_path = unique_test_cert_path("mouse-thing-test-certs");
+    let cert_path = unique_test_cert_path("zerog-test-certs");
     let cert_store = CertificateStore::load_or_create(&cert_path)
         .expect("failed to create certificate store for test");
     let endpoint = QuicEndpoint::new(listen_port, peer_id, cert_store)

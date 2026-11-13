@@ -206,7 +206,7 @@ mod tests {
     use serial_test::serial;
     use std::time::Duration;
 
-    const ROUND_TRIP_TEXT: &str = "mouse-thing-wayland-clipboard-test";
+    const ROUND_TRIP_TEXT: &str = "zerog-wayland-clipboard-test";
 
     #[test]
     fn selects_offered_plain_text_formats() {
@@ -391,7 +391,7 @@ mod tests {
             return;
         }
         let clipboard = WaylandClipboardManager::new().expect("manager should build");
-        let unicode_text = "mouse-thing 🚀 世界 café résumé";
+        let unicode_text = "zerog 🚀 世界 café résumé";
         clipboard
             .set_clipboard_text(unicode_text)
             .expect("set unicode should succeed");

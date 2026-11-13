@@ -1,4 +1,4 @@
-use mouse_thing::logging::{RuntimeDiscoveryLoggingConfig, subscriber_for_config_with_writer};
+use zerog::logging::{RuntimeDiscoveryLoggingConfig, subscriber_for_config_with_writer};
 use std::io;
 use std::sync::{Arc, Mutex};
 
@@ -48,20 +48,20 @@ fn output_as_string(writer: &SharedBufferWriter) -> String {
 
 fn emit_discovery_refresh_scenario() {
     tracing::debug!(
-        target: "mouse_thing::core::services::discovery",
+        target: "zerog::core::services::discovery",
         domain = "discovery.refresh",
         wait_ms = 250,
         "starting discovery refresh"
     );
     tracing::info!(
-        target: "mouse_thing::core::services::discovery",
+        target: "zerog::core::services::discovery",
         domain = "discovery.health",
         from = "online",
         to = "degraded",
         "discovery health transition"
     );
     tracing::info!(
-        target: "mouse_thing::core::services::discovery",
+        target: "zerog::core::services::discovery",
         domain = "discovery.peer",
         change = "added",
         peer_id = "peer-a",
@@ -70,7 +70,7 @@ fn emit_discovery_refresh_scenario() {
         "peer-set update: added peer"
     );
     tracing::info!(
-        target: "mouse_thing::core::services::discovery",
+        target: "zerog::core::services::discovery",
         domain = "discovery.peer",
         change = "stale",
         peer_id = "peer-a",
@@ -79,7 +79,7 @@ fn emit_discovery_refresh_scenario() {
         "peer-set update: stale peer"
     );
     tracing::info!(
-        target: "mouse_thing::core::services::discovery",
+        target: "zerog::core::services::discovery",
         domain = "discovery.peer",
         change = "recovered",
         peer_id = "peer-a",
@@ -88,7 +88,7 @@ fn emit_discovery_refresh_scenario() {
         "peer-set update: recovered peer"
     );
     tracing::info!(
-        target: "mouse_thing::core::services::discovery",
+        target: "zerog::core::services::discovery",
         domain = "discovery.peer",
         change = "removed",
         peer_id = "peer-b",
@@ -97,20 +97,20 @@ fn emit_discovery_refresh_scenario() {
         "peer-set update: removed peer"
     );
     tracing::debug!(
-        target: "mouse_thing::core::services::discovery",
+        target: "zerog::core::services::discovery",
         domain = "discovery.peer",
         reason_code = "peer_id_match",
         cooldown_decision = "skip_due_to_cooldown",
         "classified discovered peer locality"
     );
     tracing::debug!(
-        target: "mouse_thing::core::services::discovery",
+        target: "zerog::core::services::discovery",
         domain = "discovery.peer",
         peers = "[peer-a, peer-b]",
         "full peer list dump"
     );
     tracing::warn!(
-        target: "mouse_thing::core::services::discovery",
+        target: "zerog::core::services::discovery",
         domain = "discovery.fallback",
         attempted_strategy = "reinitialize_runtime",
         error_type = "runtime_factory",

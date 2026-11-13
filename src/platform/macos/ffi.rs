@@ -251,7 +251,7 @@ pub(super) fn set_double_value_field(event: &CGEvent, field: u32, value: f64) {
 }
 
 pub(super) fn declare_user_activity() -> Result<()> {
-    let name = CFString::new("mouse-thing keep alive");
+    let name = CFString::new("zerog keep alive");
     let mut assertion_id: u32 = 0;
     let result = unsafe {
         IOPMAssertionDeclareUserActivity(name.as_concrete_TypeRef(), 0, &mut assertion_id)

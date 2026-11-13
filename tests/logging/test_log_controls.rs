@@ -1,4 +1,4 @@
-use mouse_thing::logging::{
+use zerog::logging::{
     LOG_PRESET_ENV_VAR, LogPreset, RuntimeDiscoveryLoggingConfig, should_enable_ansi,
 };
 
@@ -26,7 +26,7 @@ fn falls_back_to_normal_preset_for_invalid_values() {
 fn uses_rust_log_override_when_present() {
     let config = RuntimeDiscoveryLoggingConfig::from_parts(
         Some("trace"),
-        Some("warn,mouse_thing::platform::shared=debug"),
+        Some("warn,zerog::platform::shared=debug"),
         true,
         false,
         false,
@@ -35,7 +35,7 @@ fn uses_rust_log_override_when_present() {
     assert_eq!(config.preset, LogPreset::Trace);
     assert_eq!(
         config.filter_directive,
-        "warn,mouse_thing::platform::shared=debug"
+        "warn,zerog::platform::shared=debug"
     );
 }
 

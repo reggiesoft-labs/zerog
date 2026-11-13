@@ -371,7 +371,7 @@ async fn injection_loop(eis_fd: std::os::fd::OwnedFd, cmd_rx: flume::Receiver<In
     // Perform the handshake as a Sender (emulation / injection) context.
     let handshake_resp = match reis::tokio::ei_handshake(
         &mut event_stream,
-        "mouse-thing",
+        "zerog",
         ei::handshake::ContextType::Sender,
         &interfaces,
     )

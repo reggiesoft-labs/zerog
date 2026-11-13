@@ -1,4 +1,4 @@
-use mouse_thing::logging::{RuntimeDiscoveryLoggingConfig, subscriber_for_config_with_writer};
+use zerog::logging::{RuntimeDiscoveryLoggingConfig, subscriber_for_config_with_writer};
 use std::io;
 use std::sync::{Arc, Mutex};
 
@@ -48,7 +48,7 @@ fn output_as_string(writer: &SharedBufferWriter) -> String {
 
 fn emit_start_command_flow() {
     tracing::info!(
-        target: "mouse_thing::platform::shared::runtime::network",
+        target: "zerog::platform::shared::runtime::network",
         domain = "runtime.connection",
         peer = "Some(192.168.1.20:54321)",
         peer_id = "peer-a",
@@ -56,20 +56,20 @@ fn emit_start_command_flow() {
         "sending ConnectionRequest"
     );
     tracing::info!(
-        target: "mouse_thing::platform::shared::entrypoints",
+        target: "zerog::platform::shared::entrypoints",
         domain = "discovery.peer",
         peer = "192.168.1.20:54321",
         name = "Alpha",
         "Peer selected via mDNS"
     );
     tracing::info!(
-        target: "mouse_thing::platform::shared::runtime_threads",
+        target: "zerog::platform::shared::runtime_threads",
         domain = "runtime.connection",
         peer_id = "peer-a",
         "connection accepted by peer"
     );
     tracing::info!(
-        target: "mouse_thing::platform::shared::runtime_threads",
+        target: "zerog::platform::shared::runtime_threads",
         domain = "runtime.transition",
         transition_key = "state_change",
         from = "LocalControl",
@@ -77,20 +77,20 @@ fn emit_start_command_flow() {
         "runtime state transition"
     );
     tracing::warn!(
-        target: "mouse_thing::platform::shared::runtime_threads",
+        target: "zerog::platform::shared::runtime_threads",
         domain = "runtime.health",
         warning_key = "peer_timeout",
         "peer heartbeat timeout"
     );
     tracing::debug!(
-        target: "mouse_thing::core::services::discovery",
+        target: "zerog::core::services::discovery",
         domain = "discovery.peer",
         reason_code = "peer_id_match",
         cooldown_decision = "skip_due_to_cooldown",
         "classified discovered peer locality"
     );
     tracing::trace!(
-        target: "mouse_thing::platform::shared::runtime_threads",
+        target: "zerog::platform::shared::runtime_threads",
         domain = "runtime.input",
         tick = 42,
         "runtime input tick"
@@ -99,26 +99,26 @@ fn emit_start_command_flow() {
 
 fn emit_list_command_flow() {
     tracing::info!(
-        target: "mouse_thing::platform::shared::entrypoints",
+        target: "zerog::platform::shared::entrypoints",
         domain = "discovery.refresh",
         port = 54321,
         "mDNS discovery started"
     );
     tracing::info!(
-        target: "mouse_thing::platform::shared::entrypoints",
+        target: "zerog::platform::shared::entrypoints",
         domain = "discovery.refresh",
         seconds = 1,
         "Listening for peers for 1 seconds"
     );
     tracing::info!(
-        target: "mouse_thing::core::services::discovery",
+        target: "zerog::core::services::discovery",
         domain = "discovery.health",
         from = "online",
         to = "degraded",
         "discovery health transition"
     );
     tracing::warn!(
-        target: "mouse_thing::core::services::discovery",
+        target: "zerog::core::services::discovery",
         domain = "discovery.fallback",
         attempted_strategy = "reinitialize_runtime",
         error_type = "runtime_factory",
@@ -127,13 +127,13 @@ fn emit_list_command_flow() {
         "discovery runtime reinitialization failed"
     );
     tracing::debug!(
-        target: "mouse_thing::core::services::discovery",
+        target: "zerog::core::services::discovery",
         domain = "discovery.refresh",
         wait_ms = 500,
         "starting discovery refresh"
     );
     tracing::debug!(
-        target: "mouse_thing::core::services::discovery",
+        target: "zerog::core::services::discovery",
         domain = "discovery.peer",
         peers = "[peer-a, peer-b]",
         "full peer list dump"

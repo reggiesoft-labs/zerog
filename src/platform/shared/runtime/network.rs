@@ -1022,7 +1022,7 @@ mod tests {
     #[test]
     fn outbound_input_session_stays_consistent() {
         with_tokio_runtime(|| {
-            let cert_path = unique_test_cert_path("mouse-thing-outbound-input-test-certs");
+            let cert_path = unique_test_cert_path("zerog-outbound-input-test-certs");
             let cert_store = CertificateStore::load_or_create(&cert_path).unwrap();
             let endpoint = Arc::new(QuicEndpoint::new(0, "local-peer", cert_store).unwrap());
             let config = RuntimeConfig {
@@ -1130,7 +1130,7 @@ mod tests {
     #[test]
     fn add_peer_preserves_display_bounds_in_runtime_snapshots() {
         with_tokio_runtime(|| {
-            let cert_path = unique_test_cert_path("mouse-thing-network-test-certs");
+            let cert_path = unique_test_cert_path("zerog-network-test-certs");
             let cert_store = CertificateStore::load_or_create(&cert_path).unwrap();
             let endpoint = Arc::new(QuicEndpoint::new(0, "local-peer", cert_store).unwrap());
             let config = RuntimeConfig {
@@ -1200,7 +1200,7 @@ mod tests {
     #[test]
     fn take_control_requires_an_established_connection() {
         with_tokio_runtime(|| {
-            let cert_path = unique_test_cert_path("mouse-thing-take-control-test-certs");
+            let cert_path = unique_test_cert_path("zerog-take-control-test-certs");
             let cert_store = CertificateStore::load_or_create(&cert_path).unwrap();
             let endpoint = Arc::new(QuicEndpoint::new(0, "local-peer", cert_store).unwrap());
             let config = RuntimeConfig {

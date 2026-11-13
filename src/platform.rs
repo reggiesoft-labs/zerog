@@ -107,7 +107,7 @@ mod platform_impl {
 
     use super::{PeerEdge, PlatformEngine, SessionEngine};
 
-    const UNSUPPORTED_PLATFORM: &str = "This OS is not supported by mouse-thing yet";
+    const UNSUPPORTED_PLATFORM: &str = "This OS is not supported by ZeroG yet";
 
     pub fn run_phase1_loopback() -> Result<()> {
         bail!(UNSUPPORTED_PLATFORM)

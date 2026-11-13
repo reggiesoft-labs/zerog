@@ -153,7 +153,7 @@ mod tests {
     use crate::platform::linux::live_test;
     use serial_test::serial;
 
-    const ROUND_TRIP_TEXT: &str = "mouse-thing-x11-clipboard-test";
+    const ROUND_TRIP_TEXT: &str = "zerog-x11-clipboard-test";
 
     fn clipboard_available() -> bool {
         X11ClipboardManager::check_xclip_available() && live_test::x11_display_available()

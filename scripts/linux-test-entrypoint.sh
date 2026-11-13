@@ -2,7 +2,7 @@
 set -euo pipefail
 
 XVFB_DISPLAY="127.0.0.1:99"
-export XDG_RUNTIME_DIR="${XDG_RUNTIME_DIR:-/tmp/mouse-thing-runtime}"
+export XDG_RUNTIME_DIR="${XDG_RUNTIME_DIR:-/tmp/zerog-runtime}"
 mkdir -p "${XDG_RUNTIME_DIR}"
 chmod 700 "${XDG_RUNTIME_DIR}"
 
@@ -32,15 +32,15 @@ fi
 export DISPLAY="${XVFB_DISPLAY}"
 
 if command -v weston >/dev/null 2>&1; then
-    weston --backend=headless --socket=mouse-thing-test --idle-time=0 &
+    weston --backend=headless --socket=zerog-test --idle-time=0 &
     for _ in $(seq 1 50); do
-        if [ -S "${XDG_RUNTIME_DIR}/mouse-thing-test" ]; then
+        if [ -S "${XDG_RUNTIME_DIR}/zerog-test" ]; then
             break
         fi
         sleep 0.2
     done
-    if [ -S "${XDG_RUNTIME_DIR}/mouse-thing-test" ]; then
-        export MOUSE_THING_TEST_WAYLAND_SOCKET="mouse-thing-test"
+    if [ -S "${XDG_RUNTIME_DIR}/zerog-test" ]; then
+        export MOUSE_THING_TEST_WAYLAND_SOCKET="zerog-test"
         export MOUSE_THING_TEST_LIVE_WAYLAND="1"
     fi
 fi

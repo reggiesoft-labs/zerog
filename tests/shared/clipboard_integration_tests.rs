@@ -1,10 +1,10 @@
 use anyhow::Result;
-use mouse_thing::core::platform::traits::ClipboardManager;
-use mouse_thing::platform::shared::test_support::{
+use zerog::core::platform::traits::ClipboardManager;
+use zerog::platform::shared::test_support::{
     reserve_local_port, wait_until, with_tokio_runtime, TestPeerPair, DEFAULT_WAIT_POLL,
     DEFAULT_WAIT_TIMEOUT,
 };
-use mouse_thing::platform::PeerEdge;
+use zerog::platform::PeerEdge;
 use std::time::Duration;
 
 #[test]
@@ -306,7 +306,7 @@ fn test_partition_reconnect_resyncs_clipboard() -> Result<()> {
         pair.a.clipboard().set_clipboard_text("during-disconnect")?;
 
         let port_b = reserve_local_port()?;
-        let b2 = mouse_thing::platform::shared::test_support::TestPeer::new(
+        let b2 = zerog::platform::shared::test_support::TestPeer::new(
             "peer-b",
             "Peer B",
             PeerEdge::Left,
@@ -378,7 +378,7 @@ fn test_hash_mismatch_rejected() -> Result<()> {
         )?;
 
         // Manually inject a ClipboardText event from Peer A to Peer B with a corrupted hash.
-        let corrupted_event = mouse_thing::core::events::Event::ClipboardText {
+        let corrupted_event = zerog::core::events::Event::ClipboardText {
             content: "Corrupted".to_string(),
             sequence: 999,
             content_hash: 12345, // Wrong hash
@@ -464,7 +464,7 @@ fn test_peer_disconnect_clears_state() -> Result<()> {
         // Let's just use a new Peer B.
 
         let port_b = reserve_local_port()?;
-        let b2 = mouse_thing::platform::shared::test_support::TestPeer::new(
+        let b2 = zerog::platform::shared::test_support::TestPeer::new(
             "peer-b",
             "Peer B",
             PeerEdge::Left,
@@ -500,7 +500,7 @@ fn test_clipboard_sharing_toggle() -> Result<()> {
     with_tokio_runtime(|| {
         let pair = TestPeerPair::new(PeerEdge::Right, PeerEdge::Left)?;
 
-        let layout_a_disabled = mouse_thing::core::api::ConfigSnapshot {
+        let layout_a_disabled = zerog::core::api::ConfigSnapshot {
             share_clipboard: false,
             ..Default::default()
         };
@@ -514,7 +514,7 @@ fn test_clipboard_sharing_toggle() -> Result<()> {
             Some("Secret text".to_string())
         );
 
-        let layout_a_enabled = mouse_thing::core::api::ConfigSnapshot {
+        let layout_a_enabled = zerog::core::api::ConfigSnapshot {
             share_clipboard: true,
             ..Default::default()
         };

@@ -1,6 +1,6 @@
 use anyhow::{Context, Result, bail};
-use mouse_thing::core::{Controller, CoreError};
-use mouse_thing::platform::shared::test_support::create_test_engine_pair;
+use zerog::core::{Controller, CoreError};
+use zerog::platform::shared::test_support::create_test_engine_pair;
 use std::env;
 use std::io::Write;
 use std::net::SocketAddr;
@@ -31,7 +31,7 @@ impl Default for Args {
 }
 
 fn main() -> Result<()> {
-    mouse_thing::install_crypto_provider();
+    zerog::install_crypto_provider();
     let args = match parse_args(env::args().skip(1))? {
         ParsedArgs::Run(args) => args,
         ParsedArgs::Help => {
@@ -76,7 +76,7 @@ async fn run(args: Args) -> Result<()> {
     while started_at.elapsed() < args.run_for {
         if let Some(rx) = update_rx.as_mut() {
             while let Ok(update) = rx.try_recv() {
-                if let mouse_thing::core::controller::events::PeerUpdate::PairingRequested { peer_id, .. } = update {
+                if let zerog::core::controller::events::PeerUpdate::PairingRequested { peer_id, .. } = update {
                     let _ = controller.approve_pairing(&peer_id);
                 }
             }

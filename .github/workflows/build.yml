@@ -38,13 +38,13 @@ jobs:
         working-directory: gui
 
       - name: Core module unit tests
-        run: cargo test -p mouse-thing --lib
+        run: cargo test -p zerog --lib
 
       - name: Trace replay integration tests
-        run: cargo test -p mouse-thing --test trace_replay_tests
+        run: cargo test -p zerog --test trace_replay_tests
 
       - name: Process lifecycle test
-        run: cargo test -p mouse-thing --test process_runtime_tests controller_processes_connect_reconnect_and_shutdown -- --exact --test-threads=1
+        run: cargo test -p zerog --test process_runtime_tests controller_processes_connect_reconnect_and_shutdown -- --exact --test-threads=1
 
       - name: Frontend unit tests
         run: npm test
@@ -200,11 +200,11 @@ jobs:
         uses: Swatinem/rust-cache@v2
 
       - name: Linux compile check
-        run: cargo check -p mouse-thing --target x86_64-unknown-linux-gnu ${{ matrix.cargo_args }}
+        run: cargo check -p zerog --target x86_64-unknown-linux-gnu ${{ matrix.cargo_args }}
 
       - name: Linux unit tests
         if: matrix.label == 'default-features'
-        run: cargo test -p mouse-thing --lib --bins
+        run: cargo test -p zerog --lib --bins
 
   security-audit:
     name: Security Audit

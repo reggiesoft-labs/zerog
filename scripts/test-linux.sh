@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-IMAGE_NAME="mouse-thing-linux-test"
+IMAGE_NAME="zerog-linux-test"
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
 if ! docker info >/dev/null 2>&1; then
@@ -13,8 +13,8 @@ docker build -t "${IMAGE_NAME}" -f "${REPO_ROOT}/docker/Dockerfile.linux-test" "
 
 docker run --rm --init \
     -v "${REPO_ROOT}:/workspace" \
-    -v "mouse-thing-linux-cargo-cache:/root/.cargo/registry" \
-    -v "mouse-thing-linux-target-cache:/workspace/target" \
+    -v "zerog-linux-cargo-cache:/root/.cargo/registry" \
+    -v "zerog-linux-target-cache:/workspace/target" \
     -w /workspace \
     "${IMAGE_NAME}" \
     /workspace/scripts/linux-test-entrypoint.sh "$@"

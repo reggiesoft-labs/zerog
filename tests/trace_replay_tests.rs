@@ -1,9 +1,9 @@
 use anyhow::Result;
-use mouse_thing::core::platform::types::CapturedInputEvent;
-use mouse_thing::platform::shared::test_support::{
+use zerog::core::platform::types::CapturedInputEvent;
+use zerog::platform::shared::test_support::{
     DEFAULT_WAIT_TIMEOUT, InjectedCall, TestPeerPair, drive_to_edge, with_tokio_runtime,
 };
-use mouse_thing::platform::{PeerEdge, TransferMode};
+use zerog::platform::{PeerEdge, TransferMode};
 use serde::Deserialize;
 use serial_test::serial;
 use std::fs;

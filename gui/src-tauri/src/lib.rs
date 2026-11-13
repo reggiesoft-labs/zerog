@@ -1,4 +1,4 @@
-//! Tauri command layer for the mouse-thing GUI.
+//! Tauri command layer for the ZeroG GUI.
 //!
 //! This module provides the bridge between the React frontend and the
 //! Rust core library. It implements Tauri commands for:
@@ -16,11 +16,11 @@
 
 mod telemetry;
 
-use mouse_thing::core::api::{ConfigSnapshot, PeerSnapshot, StatusSnapshot};
-use mouse_thing::core::controller::events::{PeerUpdate, RecvError};
-use mouse_thing::core::controller::Controller;
-use mouse_thing::core::error::CoreError;
-use mouse_thing::core::transfer::TransferEvent;
+use zerog::core::api::{ConfigSnapshot, PeerSnapshot, StatusSnapshot};
+use zerog::core::controller::events::{PeerUpdate, RecvError};
+use zerog::core::controller::Controller;
+use zerog::core::error::CoreError;
+use zerog::core::transfer::TransferEvent;
 use serde::{Deserialize, Serialize};
 use std::io::Write;
 use std::sync::{Arc, RwLock};
@@ -29,7 +29,7 @@ use std::time::Instant;
 use tauri::{Emitter, Manager};
 use tauri_plugin_updater::UpdaterExt;
 
-const DEFAULT_LISTEN_PORT: u16 = mouse_thing::core::policies::DEFAULT_PORT;
+const DEFAULT_LISTEN_PORT: u16 = zerog::core::policies::DEFAULT_PORT;
 const CONFIG_SYNC_RECEIVED_EVENT: &str = "config-sync-received";
 
 /// Shared state for the Tauri application.
@@ -327,7 +327,7 @@ where
     telemetry::log_engine_toggle_received(command);
     let result = run_blocking_task(app_handle, task_failed_message, task).await?;
     telemetry::log_engine_toggle_result(command, &result);
-    mouse_thing::release_gui_focus();
+    zerog::release_gui_focus();
     telemetry::log_command_result(command, result)
 }
 
@@ -694,7 +694,7 @@ struct WindowsInputStatusDto {
 fn query_windows_input_status() -> WindowsInputStatusDto {
     #[cfg(target_os = "windows")]
     {
-        let status = mouse_thing::platform::service::client::query_status();
+        let status = zerog::platform::service::client::query_status();
         return WindowsInputStatusDto {
             supported: status.supported,
             elevated: status.elevated,
@@ -736,7 +736,7 @@ async fn restart_as_admin(app_handle: tauri::AppHandle) -> Result<(), CommandErr
     run_blocking_task(app_handle, "Administrator relaunch task failed", |_| {
         #[cfg(target_os = "windows")]
         {
-            let result = mouse_thing::platform::service::client::restart_elevated();
+            let result = zerog::platform::service::client::restart_elevated();
             return result.map_err(|error| {
                 windows_action_error(
                     "elevate_failed",
@@ -764,7 +764,7 @@ async fn install_input_service(
     run_blocking_task(app_handle, "Input service install task failed", |_| {
         #[cfg(target_os = "windows")]
         {
-            return mouse_thing::platform::service::client::install_service()
+            return zerog::platform::service::client::install_service()
                 .map(|_| query_windows_input_status())
                 .map_err(|error| {
                     windows_action_error(
@@ -793,7 +793,7 @@ async fn uninstall_input_service(
     run_blocking_task(app_handle, "Input service removal task failed", |_| {
         #[cfg(target_os = "windows")]
         {
-            return mouse_thing::platform::service::client::uninstall_service()
+            return zerog::platform::service::client::uninstall_service()
                 .map(|_| query_windows_input_status())
                 .map_err(|error| {
                     windows_action_error(
@@ -826,7 +826,7 @@ async fn set_secure_desktop_enabled(
         move |_| {
             #[cfg(target_os = "windows")]
             {
-                return mouse_thing::platform::service::client::set_secure_desktop_enabled(enabled)
+                return zerog::platform::service::client::set_secure_desktop_enabled(enabled)
                     .map(|_| query_windows_input_status())
                     .map_err(|error| {
                         windows_action_error(
@@ -892,15 +892,15 @@ fn get_accessibility_app_bundle_path() -> Option<String> {
 fn create_app_state() -> AppState {
     AppState {
         controller: Arc::new(RwLock::new(Controller::with_engine_pair(|edge| {
-            mouse_thing::platform::create_engine_pair(edge)
-                .map_err(|e| mouse_thing::core::error::CoreError::Platform(e.to_string()))
+            zerog::platform::create_engine_pair(edge)
+                .map_err(|e| zerog::core::error::CoreError::Platform(e.to_string()))
         }))),
         listen_port: DEFAULT_LISTEN_PORT,
     }
 }
 
 fn stop_controller(controller: &Arc<RwLock<Controller>>) {
-    mouse_thing::platform::begin_shutdown();
+    zerog::platform::begin_shutdown();
     let mut controller = controller
         .write()
         .unwrap_or_else(|error| error.into_inner());
@@ -937,24 +937,24 @@ pub enum LicenseStatusDto {
     },
 }
 
-impl From<mouse_thing::core::license::LicenseStatus> for LicenseStatusDto {
-    fn from(status: mouse_thing::core::license::LicenseStatus) -> Self {
+impl From<zerog::core::license::LicenseStatus> for LicenseStatusDto {
+    fn from(status: zerog::core::license::LicenseStatus) -> Self {
         match status {
-            mouse_thing::core::license::LicenseStatus::Free => LicenseStatusDto::Free,
-            mouse_thing::core::license::LicenseStatus::Active { licensee, tier, expires_at } => {
+            zerog::core::license::LicenseStatus::Free => LicenseStatusDto::Free,
+            zerog::core::license::LicenseStatus::Active { licensee, tier, expires_at } => {
                 LicenseStatusDto::Active {
                     licensee,
                     tier: match tier {
-                        mouse_thing::core::license::LicenseTier::Free => "free".to_string(),
-                        mouse_thing::core::license::LicenseTier::Pro => "pro".to_string(),
+                        zerog::core::license::LicenseTier::Free => "free".to_string(),
+                        zerog::core::license::LicenseTier::Pro => "pro".to_string(),
                     },
                     expires_at,
                 }
             }
-            mouse_thing::core::license::LicenseStatus::Expired { licensee, expires_at } => {
+            zerog::core::license::LicenseStatus::Expired { licensee, expires_at } => {
                 LicenseStatusDto::Expired { licensee, expires_at }
             }
-            mouse_thing::core::license::LicenseStatus::Invalid { reason } => {
+            zerog::core::license::LicenseStatus::Invalid { reason } => {
                 LicenseStatusDto::Invalid { reason }
             }
         }
@@ -963,7 +963,7 @@ impl From<mouse_thing::core::license::LicenseStatus> for LicenseStatusDto {
 
 #[tauri::command]
 async fn get_license_status() -> Result<LicenseStatusDto, CommandError> {
-    Ok(mouse_thing::core::config::load_license_status().into())
+    Ok(zerog::core::config::load_license_status().into())
 }
 
 #[tauri::command]
@@ -971,31 +971,31 @@ async fn set_license_key(
     license_key: String,
 ) -> Result<LicenseStatusDto, CommandError> {
     let trimmed = license_key.trim().to_string();
-    let status = mouse_thing::core::license::verify_license_key(
+    let status = zerog::core::license::verify_license_key(
         &trimmed,
-        &mouse_thing::core::license::DEFAULT_LICENSE_PUBKEY,
+        &zerog::core::license::DEFAULT_LICENSE_PUBKEY,
     );
     match status {
-        mouse_thing::core::license::LicenseStatus::Active { .. } => {
-            let saved = mouse_thing::core::config::save_license_key(Some(trimmed))
+        zerog::core::license::LicenseStatus::Active { .. } => {
+            let saved = zerog::core::config::save_license_key(Some(trimmed))
                 .map_err(|e| custom_command_error(format!("Failed to save license key: {e}")))?;
             Ok(saved.into())
         }
-        mouse_thing::core::license::LicenseStatus::Expired { expires_at, .. } => {
+        zerog::core::license::LicenseStatus::Expired { expires_at, .. } => {
             Err(CommandError {
                 code: "license_expired",
                 message: format!("This license expired at timestamp {expires_at}."),
                 details: None,
             })
         }
-        mouse_thing::core::license::LicenseStatus::Invalid { reason } => {
+        zerog::core::license::LicenseStatus::Invalid { reason } => {
             Err(CommandError {
                 code: "invalid_license",
                 message: format!("Invalid license key: {reason}"),
                 details: None,
             })
         }
-        mouse_thing::core::license::LicenseStatus::Free => {
+        zerog::core::license::LicenseStatus::Free => {
             Err(CommandError {
                 code: "invalid_license",
                 message: "Empty license key.".to_string(),
@@ -1007,7 +1007,7 @@ async fn set_license_key(
 
 #[tauri::command]
 async fn remove_license_key() -> Result<LicenseStatusDto, CommandError> {
-    let saved = mouse_thing::core::config::save_license_key(None)
+    let saved = zerog::core::config::save_license_key(None)
         .map_err(|e| custom_command_error(format!("Failed to remove license key: {e}")))?;
     Ok(saved.into())
 }
@@ -1111,8 +1111,8 @@ async fn start_file_transfer(
     app_handle: tauri::AppHandle,
     paths: Vec<String>,
     target_peer_id: Option<String>,
-) -> Result<mouse_thing::core::transfer::FileManifest, CommandError> {
-    if !mouse_thing::core::config::load_license_status().is_pro() {
+) -> Result<zerog::core::transfer::FileManifest, CommandError> {
+    if !zerog::core::config::load_license_status().is_pro() {
         return Err(CommandError {
             code: "feature_unavailable",
             message: "File transfer is not available in this release.".to_string(),
@@ -1144,7 +1144,7 @@ async fn accept_file_transfer(
     transfer_id: String,
     save_path: Option<String>,
 ) -> Result<(), CommandError> {
-    if !mouse_thing::core::config::load_license_status().is_pro() {
+    if !zerog::core::config::load_license_status().is_pro() {
         return Err(CommandError {
             code: "feature_unavailable",
             message: "File transfer is not available in this release.".to_string(),
@@ -1161,7 +1161,7 @@ async fn accept_file_transfer(
         .ok_or_else(|| internal_error("transfer engine not running"))?;
     let target_dir = match save_path {
         Some(p) => std::path::PathBuf::from(p),
-        None => mouse_thing::core::transfer::default_download_dir(),
+        None => zerog::core::transfer::default_download_dir(),
     };
     sync.accept_transfer(&transfer_id, target_dir)
         .map_err(|e| custom_command_error(format!("failed to accept transfer: {e}")))
@@ -1238,8 +1238,8 @@ pub fn run() {
         }
     }
 
-    mouse_thing::install_crypto_provider();
-    mouse_thing::logging::init_runtime_discovery_logging();
+    zerog::install_crypto_provider();
+    zerog::logging::init_runtime_discovery_logging();
     let app_state = create_app_state();
     install_shutdown_handler(Arc::clone(&app_state.controller));
 
@@ -1637,13 +1637,13 @@ mod tests {
             peer_id: peer_id.to_string(),
             name: format!("peer-{peer_id}"),
             hostname: format!("{peer_id}.local"),
-            addr: format!("127.0.0.1:{}", mouse_thing::core::policies::DEFAULT_PORT),
+            addr: format!("127.0.0.1:{}", zerog::core::policies::DEFAULT_PORT),
             platform: Some("test".to_string()),
             screen: None,
             virtual_bounds: None,
             display_rects: Vec::new(),
             last_seen_ms: 0,
-            discovery_status: mouse_thing::core::api::DiscoveryStatusSnapshot::Online,
+            discovery_status: zerog::core::api::DiscoveryStatusSnapshot::Online,
             is_local: false,
             connected: false,
             paired: false,

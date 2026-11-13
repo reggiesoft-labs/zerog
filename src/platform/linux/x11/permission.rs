@@ -117,7 +117,7 @@ pub(crate) fn ensure_accessibility_trusted(command_name: &str) -> Result<()> {
 
     let detail = probe.error.as_deref().unwrap_or("display access denied");
     bail!(
-        "X11 display access is required before running `mouse-thing {command_name}`: {detail}. Ensure DISPLAY and XAUTHORITY are set and allow local client access."
+        "X11 display access is required before running `ZeroG {command_name}`: {detail}. Ensure DISPLAY and XAUTHORITY are set and allow local client access."
     )
 }
 

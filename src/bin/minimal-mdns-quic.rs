@@ -25,9 +25,9 @@ use std::time::{Duration, Instant};
 use tracing::{error, info, warn};
 use uuid::Uuid;
 
-const DEFAULT_PORT: u16 = mouse_thing::core::policies::DEFAULT_PORT;
+const DEFAULT_PORT: u16 = zerog::core::policies::DEFAULT_PORT;
 const DEFAULT_LOG_FILTER: &str = "info";
-const DEFAULT_SERVICE: &str = mouse_thing::core::policies::DISCOVERY_SERVICE_TYPE;
+const DEFAULT_SERVICE: &str = zerog::core::policies::DISCOVERY_SERVICE_TYPE;
 const ALPN_PROTOCOL: &[u8] = b"minimal-mdns-quic";
 const DISCOVERY_POLL_INTERVAL: Duration = Duration::from_millis(100);
 const RETRY_BACKOFF: Duration = Duration::from_secs(1);
@@ -318,7 +318,7 @@ fn main() -> Result<()> {
         }
     };
 
-    mouse_thing::install_crypto_provider();
+    zerog::install_crypto_provider();
     init_tracing(&args.log_filter)?;
 
     let runtime = tokio::runtime::Builder::new_multi_thread()

@@ -476,7 +476,7 @@ mod tests {
 
     #[test]
     fn transfer_engine_round_trip() {
-        let temp_dir = std::env::temp_dir().join(format!("mouse_thing_test_{}", Uuid::new_v4()));
+        let temp_dir = std::env::temp_dir().join(format!("zerog_test_{}", Uuid::new_v4()));
         create_dir_all(&temp_dir).unwrap();
 
         let src_file = temp_dir.join("source.txt");

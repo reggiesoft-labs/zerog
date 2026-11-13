@@ -1,6 +1,6 @@
 use anyhow::{Context, Result, bail};
-use mouse_thing::core::policies::DISCOVERY_SERVICE_TYPE;
-use mouse_thing::discovery::{DiscoveryClient, DiscoveryEvent};
+use zerog::core::policies::DISCOVERY_SERVICE_TYPE;
+use zerog::discovery::{DiscoveryClient, DiscoveryEvent};
 use std::collections::HashMap;
 use std::env;
 use std::process;
@@ -11,10 +11,10 @@ use std::time::{Duration, Instant};
 use tokio::sync::mpsc;
 use tracing::{debug, info, warn};
 
-const DEFAULT_PORT: u16 = mouse_thing::core::policies::DEFAULT_PORT;
+const DEFAULT_PORT: u16 = zerog::core::policies::DEFAULT_PORT;
 const DEFAULT_SNAPSHOT_INTERVAL_SECS: u64 = 5;
 const POLL_INTERVAL: Duration = Duration::from_millis(100);
-const DISCOVERY_LOG_TARGET: &str = "mouse_thing::core::services::discovery";
+const DISCOVERY_LOG_TARGET: &str = "zerog::core::services::discovery";
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 struct Args {
@@ -63,7 +63,7 @@ fn main() -> Result<()> {
         }
     };
 
-    mouse_thing::logging::init_runtime_discovery_logging();
+    zerog::logging::init_runtime_discovery_logging();
 
     let local_hostname = local_hostname();
     let local_name = args.name.clone().unwrap_or_else(|| local_hostname.clone());
@@ -284,7 +284,7 @@ fn local_hostname() -> String {
         .and_then(|hostname| hostname.into_string().ok())
         .map(|hostname| hostname.trim().to_string())
         .filter(|hostname| !hostname.is_empty())
-        .unwrap_or_else(|| format!("mouse-thing-{}", process::id()))
+        .unwrap_or_else(|| format!("zerog-{}", process::id()))
 }
 
 fn local_peer_id() -> String {
@@ -350,7 +350,7 @@ fn next_arg(value: Option<String>, flag: &str) -> Result<String> {
 fn usage(program_name: &str) -> String {
     format!(
         "\
-Discovery-only smoke test for mouse-thing mDNS.
+Discovery-only smoke test for ZeroG mDNS.
 
 Usage:
   {program_name} [--port <udp-port>] [--name <display-name>] [--snapshot-interval-secs <n>] [--run-for-secs <n>]

@@ -9,5 +9,6 @@ pub use sync::{TransferEvent, TransferSync};
 pub fn default_download_dir() -> std::path::PathBuf {
     dirs::download_dir()
         .unwrap_or_else(std::env::temp_dir)
+        // Legacy directory name kept so existing downloads stay in place.
         .join("mouse-thing")
 }

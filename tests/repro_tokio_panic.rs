@@ -1,6 +1,6 @@
 use anyhow::Result;
-use mouse_thing::core::events::{ClipboardSequence, Event};
-use mouse_thing::core::platform::traits::{ClipboardError, ClipboardManager, NetworkState};
+use zerog::core::events::{ClipboardSequence, Event};
+use zerog::core::platform::traits::{ClipboardError, ClipboardManager, NetworkState};
 use std::sync::Arc;
 use std::time::Duration;
 
@@ -33,7 +33,7 @@ impl NetworkState for MockNetwork {
 #[test]
 fn test_clipboard_sync_start_panics_without_runtime() {
     // Attempting to access ClipboardSync which might be private
-    use mouse_thing::platform::shared::clipboard_sync::ClipboardSync;
+    use zerog::platform::shared::clipboard_sync::ClipboardSync;
 
     let clipboard = Arc::new(MockClipboard);
     let network = Arc::new(MockNetwork);
@@ -45,7 +45,7 @@ fn test_clipboard_sync_start_panics_without_runtime() {
         clipboard,
         network,
         sequence,
-        mouse_thing::platform::shared::tokio_runtime::global_runtime_handle(),
+        zerog::platform::shared::tokio_runtime::global_runtime_handle(),
         poll_interval,
         ack_timeout,
     );

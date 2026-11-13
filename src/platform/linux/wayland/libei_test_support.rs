@@ -178,7 +178,7 @@ impl ServerSession {
     /// Advertise a seat with every capability the production clients bind to.
     pub(crate) fn advertise_seat(&self) -> eis::Seat {
         let seat = self.connection.seat(1);
-        seat.name("mouse-thing-test-seat");
+        seat.name("zerog-test-seat");
         for (capability, interface) in [
             (DeviceCapability::Pointer, "ei_pointer"),
             (DeviceCapability::PointerAbsolute, "ei_pointer_absolute"),

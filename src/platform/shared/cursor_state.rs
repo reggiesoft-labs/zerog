@@ -402,7 +402,7 @@ impl CursorState {
         next: TransferMode,
         injection: &dyn EventInjection,
     ) -> Result<()> {
-        trace!(target: "mouse_thing::platform::shared::transition",
+        trace!(target: "zerog::platform::shared::transition",
             domain = "runtime.transition",
             transition_key = "os_call",
             operation = "set_mode",
@@ -412,7 +412,7 @@ impl CursorState {
         );
         match next {
             TransferMode::RemoteControl => {
-                trace!(target: "mouse_thing::platform::shared::transition",
+                trace!(target: "zerog::platform::shared::transition",
                     domain = "runtime.transition",
                     transition_key = "os_call",
                     operation = "set_cursor_hidden",
@@ -420,7 +420,7 @@ impl CursorState {
                     "changing cursor visibility"
                 );
                 injection.set_cursor_hidden(true)?;
-                trace!(target: "mouse_thing::platform::shared::transition",
+                trace!(target: "zerog::platform::shared::transition",
                     domain = "runtime.transition",
                     transition_key = "os_call",
                     operation = "lock_cursor_position",
@@ -439,14 +439,14 @@ impl CursorState {
                 }
             }
             TransferMode::LocalControl => {
-                trace!(target: "mouse_thing::platform::shared::transition",
+                trace!(target: "zerog::platform::shared::transition",
                     domain = "runtime.transition",
                     transition_key = "os_call",
                     operation = "unlock_cursor_position",
                     "unlocking cursor position"
                 );
                 injection.unlock_cursor_position()?;
-                trace!(target: "mouse_thing::platform::shared::transition",
+                trace!(target: "zerog::platform::shared::transition",
                     domain = "runtime.transition",
                     transition_key = "os_call",
                     operation = "set_cursor_hidden",
@@ -497,7 +497,7 @@ impl CursorState {
             guard.last_edge_position = Some(pos);
         }
         self.recover();
-        trace!(target: "mouse_thing::platform::shared::transition",
+        trace!(target: "zerog::platform::shared::transition",
             domain = "runtime.transition",
             transition_key = "os_call",
             operation = "release_all_keys",
@@ -513,7 +513,7 @@ impl CursorState {
             );
         }
         if let Some((x, y)) = initial_pos {
-            trace!(target: "mouse_thing::platform::shared::transition",
+            trace!(target: "zerog::platform::shared::transition",
                 domain = "runtime.transition",
                 transition_key = "os_call",
                 operation = "restore_cursor_position",
@@ -534,7 +534,7 @@ impl CursorState {
                 let _ = injection.unlock_cursor_position();
             }
         } else {
-            trace!(target: "mouse_thing::platform::shared::transition",
+            trace!(target: "zerog::platform::shared::transition",
                 domain = "runtime.transition",
                 transition_key = "os_call",
                 operation = "unlock_cursor_position",
@@ -542,7 +542,7 @@ impl CursorState {
             );
             let _ = injection.unlock_cursor_position();
         }
-        trace!(target: "mouse_thing::platform::shared::transition",
+        trace!(target: "zerog::platform::shared::transition",
             domain = "runtime.transition",
             transition_key = "os_call",
             operation = "set_cursor_hidden",
@@ -564,7 +564,7 @@ impl CursorState {
             Ordering::Release,
         );
         if let Some((x, y)) = initial_pos {
-            trace!(target: "mouse_thing::platform::shared::transition",
+            trace!(target: "zerog::platform::shared::transition",
                 domain = "runtime.transition",
                 transition_key = "os_call",
                 operation = "inject_mouse_move",

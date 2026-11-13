@@ -904,7 +904,7 @@ mod inner {
         /// Loading a token from a non-existent path should return None.
         #[test]
         fn token_load_returns_none_for_missing() {
-            let path = PathBuf::from("/tmp/mouse-thing-test-nonexistent-portal-token-xyz-12345678");
+            let path = PathBuf::from("/tmp/zerog-test-nonexistent-portal-token-xyz-12345678");
             let loaded = PortalSession::load_token_from(&path);
             assert!(
                 loaded.is_none(),
@@ -928,7 +928,7 @@ mod inner {
 
         #[test]
         fn ic_token_load_returns_none_for_missing() {
-            let path = PathBuf::from("/tmp/mouse-thing-test-nonexistent-ic-token-xyz-12345678");
+            let path = PathBuf::from("/tmp/zerog-test-nonexistent-ic-token-xyz-12345678");
             let loaded = PortalSession::load_token_from(&path);
             assert!(
                 loaded.is_none(),

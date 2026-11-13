@@ -1,4 +1,4 @@
-//! In-tree core domain module for mouse-thing.
+//! In-tree core domain module for ZeroG.
 //!
 //! This module contains the platform-neutral logic for the mouse-sharing tool, including:
 //! - [`api`]: Public types for embedding.

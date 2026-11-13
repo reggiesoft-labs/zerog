@@ -1,4 +1,4 @@
-//! Application controller facade for mouse-thing.
+//! Application controller facade for ZeroG.
 //!
 //! The controller keeps the app-facing API small and delegates stateful work to
 //! a few concrete helpers:

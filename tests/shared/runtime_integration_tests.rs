@@ -2,13 +2,13 @@ use anyhow::Result;
 use serial_test::serial;
 use std::net::UdpSocket;
 
-use mouse_thing::core::api::ConfigSnapshot;
-use mouse_thing::core::peer_state::{ConnectionStatus, TransportReachability};
-use mouse_thing::core::platform::EdgeAssignments;
-use mouse_thing::events::{Event, LayoutPlacement, LayoutUpdateEvent, PROTOCOL_VERSION, Packet};
-use mouse_thing::platform::{DisplayBounds, PeerEdge, TransferMode};
+use zerog::core::api::ConfigSnapshot;
+use zerog::core::peer_state::{ConnectionStatus, TransportReachability};
+use zerog::core::platform::EdgeAssignments;
+use zerog::events::{Event, LayoutPlacement, LayoutUpdateEvent, PROTOCOL_VERSION, Packet};
+use zerog::platform::{DisplayBounds, PeerEdge, TransferMode};
 
-use mouse_thing::platform::shared::test_support::{
+use zerog::platform::shared::test_support::{
     DEFAULT_WAIT_POLL, DEFAULT_WAIT_TIMEOUT, InjectedCall, MODE_STABILITY_WAIT, TestPeerPair,
     assert_mode_stays, drive_to_edge, expected_receiver_entry, mouse_move, wait_until,
     suppressed_mouse_move, with_tokio_runtime,
@@ -911,20 +911,20 @@ const KEY_B: u32 = 0x05;
 const KEY_S: u32 = 0x16;
 const KEY_ALT: u32 = 0x3A;
 
-fn key_press(keycode: u32) -> mouse_thing::platform::CapturedInputEvent {
-    mouse_thing::platform::CapturedInputEvent::KeyPress { keycode }
+fn key_press(keycode: u32) -> zerog::platform::CapturedInputEvent {
+    zerog::platform::CapturedInputEvent::KeyPress { keycode }
 }
 
-fn key_release(keycode: u32) -> mouse_thing::platform::CapturedInputEvent {
-    mouse_thing::platform::CapturedInputEvent::KeyRelease { keycode }
+fn key_release(keycode: u32) -> zerog::platform::CapturedInputEvent {
+    zerog::platform::CapturedInputEvent::KeyRelease { keycode }
 }
 
-fn mouse_button(button: u8, pressed: bool) -> mouse_thing::platform::CapturedInputEvent {
-    mouse_thing::platform::CapturedInputEvent::MouseButton { button, pressed }
+fn mouse_button(button: u8, pressed: bool) -> zerog::platform::CapturedInputEvent {
+    zerog::platform::CapturedInputEvent::MouseButton { button, pressed }
 }
 
-fn mouse_wheel(delta: i32) -> mouse_thing::platform::CapturedInputEvent {
-    mouse_thing::platform::CapturedInputEvent::MouseWheel {
+fn mouse_wheel(delta: i32) -> zerog::platform::CapturedInputEvent {
+    zerog::platform::CapturedInputEvent::MouseWheel {
         delta_x: 0,
         delta_y: delta,
     }
@@ -1518,7 +1518,7 @@ fn removing_peer_after_timeout_and_readding_works() -> Result<()> {
 #[serial]
 fn connection_refused_does_not_crash() -> Result<()> {
     with_tokio_runtime(|| {
-        use mouse_thing::platform::shared::test_support::{TestPeer, reserve_local_port};
+        use zerog::platform::shared::test_support::{TestPeer, reserve_local_port};
 
         let port_a = reserve_local_port()?;
         let peer_a = TestPeer::new("peer-a", "Peer A", PeerEdge::Right, port_a, 101)?;

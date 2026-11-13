@@ -209,7 +209,7 @@ pub(crate) fn ensure_accessibility_trusted(command_name: &str) -> Result<()> {
     }
 
     bail!(
-        "Wayland input permission is required before running `mouse-thing {command_name}`. {}",
+        "Wayland input permission is required before running `ZeroG {command_name}`. {}",
         session::permission_remediation()
     )
 }

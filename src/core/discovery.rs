@@ -560,7 +560,7 @@ impl DiscoveryClient {
             .and_then(|hostname| {
                 Self::non_empty_trimmed(Some(hostname.as_str())).map(Self::normalize_hostname)
             })
-            .unwrap_or_else(|| format!("mouse-thing-{}", process::id()))
+            .unwrap_or_else(|| format!("zerog-{}", process::id()))
     }
 
     fn non_empty_trimmed(value: Option<&str>) -> Option<&str> {
@@ -581,7 +581,7 @@ impl DiscoveryClient {
             .collect::<String>();
 
         if out.is_empty() {
-            out = format!("mouse-thing-{}", process::id());
+            out = format!("zerog-{}", process::id());
         }
 
         out
@@ -594,7 +594,7 @@ impl DiscoveryClient {
             .collect::<String>();
 
         if out.is_empty() {
-            format!("mouse-thing-{}", process::id())
+            format!("zerog-{}", process::id())
         } else {
             out
         }

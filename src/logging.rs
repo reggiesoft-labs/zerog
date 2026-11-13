@@ -34,12 +34,12 @@ impl LogPreset {
 
     pub fn filter_directive(self) -> &'static str {
         match self {
-            Self::Normal => "warn,mouse_thing=info,mouse_thing::core::discovery=info,mouse_thing::core::services::discovery=info",
+            Self::Normal => "warn,zerog=info,zerog::core::discovery=info,zerog::core::services::discovery=info",
             Self::Debug => {
-                "warn,mouse_thing=info,mouse_thing::platform::shared=debug,mouse_thing::core::discovery=debug,mouse_thing::core::services::discovery=debug"
+                "warn,zerog=info,zerog::platform::shared=debug,zerog::core::discovery=debug,zerog::core::services::discovery=debug"
             }
             Self::Trace => {
-                "warn,mouse_thing=info,mouse_thing::platform::shared=debug,mouse_thing::platform::shared::runtime_threads=trace,mouse_thing::platform::shared::transition=trace,mouse_thing::core::discovery=trace,mouse_thing::core::services::discovery=trace"
+                "warn,zerog=info,zerog::platform::shared=debug,zerog::platform::shared::runtime_threads=trace,zerog::platform::shared::transition=trace,zerog::core::discovery=trace,zerog::core::services::discovery=trace"
             }
         }
     }

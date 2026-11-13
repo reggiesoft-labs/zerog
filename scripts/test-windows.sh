@@ -9,10 +9,10 @@ REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 run_in_vm() {
     local ssh_host="$1"
     echo "Syncing repo to ${ssh_host}..."
-    ssh "${ssh_host}" "powershell -NoProfile -Command \"if (-not (Test-Path C:/mouse-thing)) { New-Item -ItemType Directory C:/mouse-thing | Out-Null }\""
-    rsync -az --delete --exclude target --exclude .git "${REPO_ROOT}/" "${ssh_host}:C:/mouse-thing/"
+    ssh "${ssh_host}" "powershell -NoProfile -Command \"if (-not (Test-Path C:/zerog)) { New-Item -ItemType Directory C:/zerog | Out-Null }\""
+    rsync -az --delete --exclude target --exclude .git "${REPO_ROOT}/" "${ssh_host}:C:/zerog/"
     echo "Running tests inside Windows VM..."
-    ssh "${ssh_host}" "cd C:/mouse-thing && cargo test --test trace_replay_tests -q && cargo test --test runtime_integration_tests -q && cargo test --test clipboard_integration_tests -q"
+    ssh "${ssh_host}" "cd C:/zerog && cargo test --test trace_replay_tests -q && cargo test --test runtime_integration_tests -q && cargo test --test clipboard_integration_tests -q"
 }
 
 run_compile_check() {

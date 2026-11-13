@@ -11,4 +11,4 @@ pub(crate) mod os;
 pub(crate) mod os;
 
 #[cfg(not(any(target_os = "linux", target_os = "macos", target_os = "windows")))]
-compile_error!("mouse-thing only supports Linux, macOS, and Windows targets");
+compile_error!("ZeroG only supports Linux, macOS, and Windows targets");

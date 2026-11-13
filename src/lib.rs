@@ -1,4 +1,4 @@
-//! mouse-thing platform implementation library crate.
+//! ZeroG platform implementation library crate.
 //!
 //! This crate provides platform implementations (macOS, Windows, Linux), the
 //! in-tree core domain module, and shared runtime wiring.

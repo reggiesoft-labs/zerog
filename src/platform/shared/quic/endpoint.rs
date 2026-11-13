@@ -19,6 +19,8 @@ use super::cert_store::CertificateStore;
 use super::connection::PeerConnection;
 
 const MAX_DATAGRAM_SIZE: usize = 1200;
+// Wire protocol identifier. Kept as "mouse-thing" so renamed builds still
+// interoperate with peers running older versions.
 const ALPN_PROTOCOL: &[u8] = b"mouse-thing";
 const BIND_RETRY_ATTEMPTS: usize = 12;
 const BIND_RETRY_DELAY_MS: u64 = 25;

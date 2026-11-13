@@ -1,6 +1,6 @@
 use anyhow::{Context, Result, anyhow, bail};
-use mouse_thing::platform::shared::edge_probe::EdgeProbe;
-use mouse_thing::platform::{DisplayBounds, PeerEdge, create_engine_pair};
+use zerog::platform::shared::edge_probe::EdgeProbe;
+use zerog::platform::{DisplayBounds, PeerEdge, create_engine_pair};
 use std::env;
 use std::process;
 use std::sync::Arc;

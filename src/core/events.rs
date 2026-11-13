@@ -1,7 +1,7 @@
 //! Wire protocol events for peer-to-peer communication.
 //!
 //! This module defines the event types serialized and sent between
-//! mouse-thing peers. Events represent mouse movements, button clicks, keyboard
+//! ZeroG peers. Events represent mouse movements, button clicks, keyboard
 //! input, and connection management messages.
 //!
 //! # Wire Format

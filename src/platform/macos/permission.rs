@@ -48,7 +48,7 @@ pub(super) fn ensure_accessibility_trusted(command_name: &str) -> Result<()> {
     } else {
         ffi::open_accessibility_settings();
         print_accessibility_instructions();
-        bail!("Accessibility permission is required before running `mouse-thing {command_name}`")
+        bail!("Accessibility permission is required before running `ZeroG {command_name}`")
     }
 }
 
@@ -84,5 +84,5 @@ fn print_accessibility_instructions() {
     eprintln!("1) Open System Settings -> Privacy & Security -> Accessibility");
     eprintln!("2) Add and enable your terminal (or this binary)");
     eprintln!("3) Restart the command after permission is granted");
-    eprintln!("Tip: run `mouse-thing doctor` to re-check permission status");
+    eprintln!("Tip: run `ZeroG doctor` to re-check permission status");
 }

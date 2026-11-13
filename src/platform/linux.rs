@@ -157,7 +157,7 @@ pub fn check_accessibility_permission() -> Result<()> {
 }
 
 pub fn run_phase3_manual(_peer: String, _listen_port: u16, _peer_edge: PeerEdge) -> Result<()> {
-    anyhow::bail!("Manual peer mode is removed; use `mouse-thing start` with mDNS discovery")
+    anyhow::bail!("Manual peer mode is removed; use `ZeroG` with mDNS discovery")
 }
 
 pub fn run_phase4_start(

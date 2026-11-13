@@ -1,15 +1,15 @@
 use anyhow::{Context, Result, bail};
-use mouse_thing::core::{Controller, CoreError, PeerSnapshot};
+use zerog::core::{Controller, CoreError, PeerSnapshot};
 use std::env;
 use std::process;
 use std::time::{Duration, Instant};
 use tracing::info;
 
-const DEFAULT_PORT: u16 = mouse_thing::core::policies::DEFAULT_PORT;
+const DEFAULT_PORT: u16 = zerog::core::policies::DEFAULT_PORT;
 const DEFAULT_TIMEOUT_SECS: u64 = 30;
 const DEFAULT_SNAPSHOT_INTERVAL_SECS: u64 = 2;
 const POLL_INTERVAL: Duration = Duration::from_millis(100);
-const CONNECT_LOG_TARGET: &str = "mouse_thing::platform::shared::entrypoints";
+const CONNECT_LOG_TARGET: &str = "zerog::platform::shared::entrypoints";
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 struct Args {
@@ -52,8 +52,8 @@ fn main() -> Result<()> {
         }
     };
 
-    mouse_thing::install_crypto_provider();
-    mouse_thing::logging::init_runtime_discovery_logging();
+    zerog::install_crypto_provider();
+    zerog::logging::init_runtime_discovery_logging();
 
     let runtime = tokio::runtime::Builder::new_multi_thread()
         .enable_all()
@@ -61,7 +61,7 @@ fn main() -> Result<()> {
         .context("failed to build tokio runtime")?;
 
     let mut controller = Controller::with_engine_pair(|peer_edge| {
-        mouse_thing::platform::create_engine_pair(peer_edge)
+        zerog::platform::create_engine_pair(peer_edge)
             .map_err(|error| CoreError::Engine(error.to_string()))
     });
     let connect_result = runtime.block_on(run_connect_smoke(&mut controller, &args));
@@ -203,7 +203,7 @@ fn local_hostname() -> String {
         .and_then(|hostname| hostname.into_string().ok())
         .map(|hostname| hostname.trim().to_string())
         .filter(|hostname| !hostname.is_empty())
-        .unwrap_or_else(|| format!("mouse-thing-{}", process::id()))
+        .unwrap_or_else(|| format!("zerog-{}", process::id()))
 }
 
 fn parse_args_from<I>(args: I, program_name: &str) -> Result<ParsedArgs>
@@ -275,7 +275,7 @@ fn next_arg(value: Option<String>, flag: &str) -> Result<String> {
 fn usage(program_name: &str) -> String {
     format!(
         "\
-Connection smoke test for mouse-thing peer discovery and outbound connect.
+Connection smoke test for ZeroG peer discovery and outbound connect.
 
 Usage:
   {program_name} [--port <udp-port>] [--peer <hostname|name|peer-id>] [--address <ip:port>] [--timeout-secs <n>] [--snapshot-interval-secs <n>] [--hold-for-secs <n>]
@@ -309,7 +309,7 @@ Environment:
 #[cfg(test)]
 mod tests {
     use super::{Args, ParsedArgs, parse_args_from, peer_matches_filter};
-    use mouse_thing::core::PeerSnapshot;
+    use zerog::core::PeerSnapshot;
     use std::time::Duration;
 
     #[test]

@@ -383,7 +383,7 @@ mod tests {
 
     #[tokio::test]
     async fn transfer_sync_async_worker_delivers_file() {
-        let temp_dir = std::env::temp_dir().join(format!("mouse_thing_sync_test_{}", Uuid::new_v4()));
+        let temp_dir = std::env::temp_dir().join(format!("zerog_sync_test_{}", Uuid::new_v4()));
         std::fs::create_dir_all(&temp_dir).unwrap();
 
         let src_file = temp_dir.join("payload.bin");
@@ -444,7 +444,7 @@ mod tests {
 
     #[tokio::test]
     async fn transfer_sync_disconnect_aborts_incoming_and_cleans_file() {
-        let temp_dir = std::env::temp_dir().join(format!("mouse_thing_sync_abort_{}", Uuid::new_v4()));
+        let temp_dir = std::env::temp_dir().join(format!("zerog_sync_abort_{}", Uuid::new_v4()));
         std::fs::create_dir_all(&temp_dir).unwrap();
 
         let src_file = temp_dir.join("partial.bin");
@@ -513,7 +513,7 @@ mod tests {
 
     #[tokio::test]
     async fn transfer_sync_disconnect_aborts_outgoing() {
-        let temp_dir = std::env::temp_dir().join(format!("mouse_thing_out_abort_{}", Uuid::new_v4()));
+        let temp_dir = std::env::temp_dir().join(format!("zerog_out_abort_{}", Uuid::new_v4()));
         std::fs::create_dir_all(&temp_dir).unwrap();
 
         let src_file = temp_dir.join("outgoing.bin");

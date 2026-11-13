@@ -240,7 +240,7 @@ async fn capture_loop(
     // Perform the handshake (we are a Receiver context for capture).
     let handshake_resp = match reis::tokio::ei_handshake(
         &mut event_stream,
-        "mouse-thing",
+        "zerog",
         ei::handshake::ContextType::Receiver,
         &interfaces,
     )

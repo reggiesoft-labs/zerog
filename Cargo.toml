@@ -3,11 +3,11 @@ members = [".", "gui/src-tauri"]
 resolver = "2"
 
 [workspace.dependencies]
-mouse-thing = { path = "." }
+zerog = { path = "." }
 tokio = { version = "1", features = ["rt", "rt-multi-thread", "time", "sync", "macros", "io-util", "signal"] }
 
 [package]
-name = "mouse-thing"
+name = "zerog"
 version = "1.0.3"
 edition = "2024"
 license = "MIT"

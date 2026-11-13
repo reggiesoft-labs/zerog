@@ -20,7 +20,7 @@ fn main() {
         let disable_sd = std::env::args().any(|arg| arg == "--disable-secure-desktop");
 
         if install_mode {
-            let result = mouse_thing::platform::service::client::install_service();
+            let result = zerog::platform::service::client::install_service();
             std::process::exit(match result {
                 Ok(()) => 0,
                 Err(error) => {
@@ -30,7 +30,7 @@ fn main() {
             });
         }
         if uninstall_mode {
-            let result = mouse_thing::platform::service::client::uninstall_service();
+            let result = zerog::platform::service::client::uninstall_service();
             std::process::exit(match result {
                 Ok(()) => 0,
                 Err(error) => {
@@ -40,7 +40,7 @@ fn main() {
             });
         }
         if enable_sd || disable_sd {
-            let result = mouse_thing::platform::service::client::set_secure_desktop_enabled(enable_sd);
+            let result = zerog::platform::service::client::set_secure_desktop_enabled(enable_sd);
             std::process::exit(match result {
                 Ok(()) => 0,
                 Err(error) => {
@@ -54,9 +54,9 @@ fn main() {
         let standalone_mode = std::env::args().any(|arg| arg == "--input-service-standalone");
         if service_mode || standalone_mode {
             let result = if service_mode {
-                mouse_thing::platform::service::run_service_main()
+                zerog::platform::service::run_service_main()
             } else {
-                mouse_thing::platform::service::run_service_standalone()
+                zerog::platform::service::run_service_standalone()
             };
             std::process::exit(match result {
                 Ok(()) => 0,
