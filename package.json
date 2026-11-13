@@ -1,6 +1,7 @@
 {
   "name": "mouse-thing",
   "private": true,
+  "license": "MIT",
   "scripts": {
     "dev": "npm run tauri dev --prefix gui",
     "build": "npm run tauri build --prefix gui",

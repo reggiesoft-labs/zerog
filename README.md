@@ -86,4 +86,4 @@ npm run tauri build
 
 ## License
 
-Free and open-source software by [ReggieSoft](https://reggiesoft.com/).
+ZeroG is free and open-source software by [ReggieSoft](https://reggiesoft.com/), released under the [MIT License](LICENSE).
