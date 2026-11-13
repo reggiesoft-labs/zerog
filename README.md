@@ -12,7 +12,7 @@ Free, open-source, and runs entirely on your local network.
 
 ## Downloads
 
-Download the latest version for your platform from the [GitHub Releases](https://github.com/reggiesoft-labs/zerog/releases/latest) page:
+Download the latest version for your platform from the [GitHub Releases](https://github.com/reggiesoft-labs/zerog/releases/latest) page or the [official website](https://reggiesoft.com/zerog).
 
 | Platform | Installer | Notes |
 | :--- | :--- | :--- |
@@ -30,8 +30,6 @@ ZeroG ships as a cask from a third-party tap, which must be added first:
 brew tap reggiesoft-labs/tap
 brew install --cask reggiesoft-labs/tap/zerog
 ```
-
-Also available on the official website: [reggiesoft.com/zerog](https://reggiesoft.com/zerog).
 
 
 ---
