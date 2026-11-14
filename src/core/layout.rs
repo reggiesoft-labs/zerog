@@ -4,7 +4,7 @@
 //! those placements into a runtime-oriented contact model describing which span
 //! of a local edge maps to which span of a peer edge.
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 use crate::core::api::ConfigSnapshot;
 use crate::core::events::{LayoutPlacement, LayoutUpdateEvent};
@@ -14,6 +14,15 @@ use crate::core::platform::{DisplayBounds, PeerEdge};
 const DEFAULT_BOUNDS_WIDTH: u32 = 1440;
 const DEFAULT_BOUNDS_HEIGHT: u32 = 900;
 const EDGE_MARGIN: f64 = 8.0;
+/// Largest editor-space gap between two facing edges that still counts as
+/// touching. Absorbs node-size drift after a resolution change while staying
+/// below the smallest node (64) plus margins, so a display with another one
+/// in between never counts as a direct neighbour. Mirrors `MAX_CONTACT_GAP`
+/// in `gui/src/layoutMath.js`.
+const MAX_CONTACT_GAP: f64 = EDGE_MARGIN + 48.0;
+/// Minimum shared edge length a placement keeps with the display it snaps to.
+/// Mirrors `MIN_EDGE_OVERLAP` in `gui/src/layoutMath.js`.
+const MIN_EDGE_OVERLAP: f64 = 16.0;
 const BASIS_POINTS: u16 = 10_000;
 const MAX_NODE_WIDTH: f64 = 260.0;
 const MAX_NODE_HEIGHT: f64 = 190.0;
@@ -53,15 +62,29 @@ pub struct LayoutContact {
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct ResolvedLayout {
     contacts: Vec<LayoutContact>,
+    placed_peer_ids: HashSet<String>,
 }
 
 impl ResolvedLayout {
     pub fn new(contacts: Vec<LayoutContact>) -> Self {
-        Self { contacts }
+        let placed_peer_ids = contacts
+            .iter()
+            .map(|contact| contact.peer_id.clone())
+            .collect();
+        Self {
+            contacts,
+            placed_peer_ids,
+        }
     }
 
     pub fn contacts(&self) -> &[LayoutContact] {
         &self.contacts
+    }
+
+    /// Whether the layout places this peer, including placements that do not
+    /// touch the local display (for example the far end of a row of three).
+    pub fn is_placed(&self, peer_id: &str) -> bool {
+        self.placed_peer_ids.contains(peer_id)
     }
 
     pub fn contacts_on_edge(&self, edge: PeerEdge) -> impl Iterator<Item = &LayoutContact> {
@@ -88,12 +111,14 @@ pub fn resolved_layout_from_config(
 ) -> ResolvedLayout {
     let local_bounds = local_bounds.unwrap_or(default_bounds());
     let mut contacts = Vec::new();
+    let mut placed_peer_ids = HashSet::new();
 
     for placement in &config.placements {
         let peer_id = canonical_peer_id(&placement.peer_id);
         if peer_id.is_empty() {
             continue;
         }
+        placed_peer_ids.insert(peer_id.clone());
 
         let peer_bounds = peer_bounds_by_id
             .get(&peer_id)
@@ -106,7 +131,10 @@ pub fn resolved_layout_from_config(
         contacts.push(contact);
     }
 
-    ResolvedLayout::new(contacts)
+    ResolvedLayout {
+        contacts,
+        placed_peer_ids,
+    }
 }
 
 pub fn bootstrap_edge_for_placement(
@@ -205,6 +233,14 @@ fn contact_from_placement(
             if overlap_end < overlap_start {
                 return None;
             }
+            let gap = if edge == PeerEdge::Right {
+                (f64::from(placement.x) - peer_size.width / 2.0) - local_size.width / 2.0
+            } else {
+                -(local_size.width / 2.0) - (f64::from(placement.x) + peer_size.width / 2.0)
+            };
+            if gap > MAX_CONTACT_GAP {
+                return None;
+            }
 
             (
                 overlap_start - local_top,
@@ -222,6 +258,14 @@ fn contact_from_placement(
             let overlap_start = local_left.max(peer_left);
             let overlap_end = local_right.min(peer_right);
             if overlap_end < overlap_start {
+                return None;
+            }
+            let gap = if edge == PeerEdge::Bottom {
+                (f64::from(placement.y) - peer_size.height / 2.0) - local_size.height / 2.0
+            } else {
+                -(local_size.height / 2.0) - (f64::from(placement.y) + peer_size.height / 2.0)
+            };
+            if gap > MAX_CONTACT_GAP {
                 return None;
             }
 
@@ -464,16 +508,13 @@ struct EdgeContacts {
 }
 
 fn edge_slide_range(anchor: NodeRect, peer: NodeRect, edge: PeerEdge) -> (f64, f64) {
-    match edge {
-        PeerEdge::Left | PeerEdge::Right => {
-            let half_span = (anchor.height + peer.height) / 2.0;
-            (anchor.y - half_span, anchor.y + half_span)
-        }
-        PeerEdge::Top | PeerEdge::Bottom => {
-            let half_span = (anchor.width + peer.width) / 2.0;
-            (anchor.x - half_span, anchor.x + half_span)
-        }
-    }
+    let (anchor_center, anchor_len, peer_len) = match edge {
+        PeerEdge::Left | PeerEdge::Right => (anchor.y, anchor.height, peer.height),
+        PeerEdge::Top | PeerEdge::Bottom => (anchor.x, anchor.width, peer.width),
+    };
+    let min_overlap = MIN_EDGE_OVERLAP.min(anchor_len).min(peer_len);
+    let half_span = (anchor_len + peer_len) / 2.0 - min_overlap;
+    (anchor_center - half_span, anchor_center + half_span)
 }
 
 #[cfg(test)]
@@ -620,6 +661,78 @@ mod tests {
 
         assert_eq!(top.peer_id, "peer-top");
         assert_eq!(bottom.peer_id, "peer-bottom");
+    }
+
+    fn placement(peer_id: &str, x: i32, y: i32) -> LayoutPlacement {
+        LayoutPlacement {
+            peer_id: peer_id.to_string(),
+            peer_label: String::new(),
+            x,
+            y,
+        }
+    }
+
+    #[test]
+    fn resolved_layout_skips_peers_beyond_a_neighbour() {
+        // Row of three seen from the left end: the middle machine touches
+        // this display, the far one sits beyond it on the same side.
+        let config = ConfigSnapshot {
+            placements: vec![
+                placement("peer-far", 332, 0),
+                placement("peer-middle", 166, 0),
+            ],
+            ..Default::default()
+        };
+        let resolved = resolved_layout_from_config(&config, None, &HashMap::new());
+
+        assert_eq!(resolved.contacts().len(), 1);
+        assert_eq!(resolved.contacts()[0].peer_id, "peer-middle");
+        assert_eq!(
+            resolved
+                .contact_for_position(PeerEdge::Right, 5_000)
+                .map(|contact| contact.peer_id.as_str()),
+            Some("peer-middle")
+        );
+        assert!(resolved.is_placed("peer-far"));
+        assert!(resolved.is_placed("peer-middle"));
+        assert!(!resolved.is_placed("peer-unknown"));
+    }
+
+    #[test]
+    fn resolved_layout_tolerates_node_size_drift_for_neighbours() {
+        // Saved against a 1920x1080 peer (half width 90); the peer now reports
+        // 1280x800 (half width 60), opening the gap by 30.
+        let config = ConfigSnapshot {
+            placements: vec![placement("peer-b", 166, 0)],
+            ..Default::default()
+        };
+        let peer_bounds = HashMap::from([(
+            "peer-b".to_string(),
+            DisplayBounds {
+                x: 0,
+                y: 0,
+                width: 1280,
+                height: 800,
+            },
+        )]);
+        let resolved = resolved_layout_from_config(&config, None, &peer_bounds);
+
+        assert_eq!(resolved.contacts().len(), 1);
+        assert_eq!(resolved.contacts()[0].local.edge, PeerEdge::Right);
+    }
+
+    #[test]
+    fn corner_projection_keeps_a_minimum_shared_edge() {
+        let anchor = super::node_rect(super::default_bounds(), 0.0, 0.0);
+        let peer = super::node_rect(super::default_bounds(), 0.0, 0.0);
+
+        // Pulled past the top-right corner: the peer stops while it still
+        // shares MIN_EDGE_OVERLAP of the right edge.
+        let projection = super::project_to_connected_edge(300.0, -80.0, anchor, peer);
+        assert_eq!(projection.edge, PeerEdge::Right);
+        let peer_bottom = projection.y + peer.height / 2.0;
+        let anchor_top = -anchor.height / 2.0;
+        assert_eq!(peer_bottom - anchor_top, super::MIN_EDGE_OVERLAP);
     }
 
     #[test]

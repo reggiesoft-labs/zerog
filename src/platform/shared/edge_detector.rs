@@ -199,6 +199,7 @@ mod tests {
                     start_bp: 0,
                     end_bp: 10_000,
                 },
+                fallback: false,
             },
         }
     }

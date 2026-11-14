@@ -78,6 +78,7 @@ impl EdgeProbe {
                     start_bp: 0,
                     end_bp: 10_000,
                 },
+                fallback: false,
             },
         });
         let result = self.detector.check_outbound_target(detected, sample_us, 0);

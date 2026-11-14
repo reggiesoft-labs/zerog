@@ -1246,6 +1246,75 @@ impl TestPeerPair {
     }
 }
 
+/// Three peers in a row, `a | b | c`: `b` sits between the other two and is
+/// connected to both, while `a` and `c` are not connected to each other.
+pub struct TestPeerRow {
+    pub a: TestPeer,
+    pub b: TestPeer,
+    pub c: TestPeer,
+}
+
+impl TestPeerRow {
+    pub fn new() -> Result<Self> {
+        ensure_crypto_provider();
+        let row_nonce = TEST_PEER_PAIR_COUNTER.fetch_add(1, Ordering::Relaxed);
+        let source_marker = 1_000 + row_nonce * 2;
+        let build = |name: &str, label: &str, edge: PeerEdge, marker: u64| -> Result<TestPeer> {
+            let peer_id = format!("peer-{name}-{row_nonce}");
+            let peer = TestPeer::new(&peer_id, label, edge, reserve_local_port()?, marker)?;
+            peer.engine.configure_runtime(
+                Arc::clone(&peer.endpoint),
+                0,
+                DEFAULT_MAX_EVENTS_PER_PACKET,
+                0,
+                peer_id,
+                50,
+                200,
+            )?;
+            peer.start()?;
+            Ok(peer)
+        };
+        let a = build("a", "Peer A", PeerEdge::Right, source_marker)?;
+        let b = build("b", "Peer B", PeerEdge::Left, source_marker + 1)?;
+        // Source markers of later pairs/rows must not collide with this one.
+        TEST_PEER_PAIR_COUNTER.fetch_add(1, Ordering::Relaxed);
+        let c = build("c", "Peer C", PeerEdge::Left, source_marker + 2)?;
+
+        a.add_peer(b.peer_ref(), b.addr()?, PeerEdge::Right)?;
+        b.add_peer(a.peer_ref(), a.addr()?, PeerEdge::Left)?;
+        b.add_peer(c.peer_ref(), c.addr()?, PeerEdge::Right)?;
+        c.add_peer(b.peer_ref(), b.addr()?, PeerEdge::Left)?;
+        thread::sleep(Duration::from_millis(50));
+        a.connect_to(b.addr()?)?;
+        c.connect_to(b.addr()?)?;
+
+        let row = Self { a, b, c };
+        wait_until(
+            "peer row connection",
+            DEFAULT_WAIT_TIMEOUT,
+            DEFAULT_WAIT_POLL,
+            || {
+                is_connected_to(&row.a, &row.b.peer_id)
+                    && is_connected_to(&row.b, &row.a.peer_id)
+                    && is_connected_to(&row.b, &row.c.peer_id)
+                    && is_connected_to(&row.c, &row.b.peer_id)
+            },
+            || {
+                format!(
+                    "A: {}; B: {}; C: {}",
+                    row.a.debug_snapshot(),
+                    row.b.debug_snapshot(),
+                    row.c.debug_snapshot()
+                )
+            },
+        )?;
+        row.a.clear_injected();
+        row.b.clear_injected();
+        row.c.clear_injected();
+        Ok(row)
+    }
+}
+
 fn is_connected_to(peer: &TestPeer, expected_peer_id: &str) -> bool {
     peer.runtime_state().iter().any(|state| {
         state.peer_id == expected_peer_id

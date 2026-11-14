@@ -2,13 +2,14 @@ import {
   LOCAL_ANCHOR,
   clamp,
   getNodeSize,
+  getTouchingEdge,
   normalizeConnectedPlacement,
 } from "./layoutMath.js";
 import { normalizePeerId } from "./peerList.js";
 import { isPeerConnected } from "./peerViewModel.js";
 
 const COLLISION_PADDING = 4;
-const FALLBACK_RADIUS = 320;
+const FALLBACK_EDGE_ORDER = ["right", "left", "top", "bottom"];
 
 export function normalizeConfigValue(value) {
   const trimmed = String(value ?? "").trim();
@@ -64,35 +65,110 @@ function getPlacementPosition(placement) {
   };
 }
 
-function normalizePlacement(placement, peer, anchorRect) {
-  const size = getNodeSize(peer);
-  const position = getPlacementPosition(placement);
-  const normalized = normalizeConnectedPlacement(
-    position.x,
-    position.y,
-    size,
-    anchorRect,
-  );
+// Placements that touch the local display are re-snapped onto it. Placements
+// that only touch another placed display (the far end of a row of three, as
+// rebased from another machine's layout) keep their position, as do
+// placements for peers this machine does not know. Anything else floats free
+// and is snapped back onto the local display.
+function normalizePlacements(placements, peers, anchorRect) {
+  const entries = placements
+    .map((placement) => {
+      const peerId = normalizePeerId(placement?.peer_id);
+      if (!peerId) {
+        return null;
+      }
+      const peer = getPeerById(peers, peerId);
+      const size = getNodeSize(peer);
+      const position = getPlacementPosition(placement);
+      return {
+        placement,
+        peerId,
+        peer,
+        size,
+        position,
+        rect: { ...position, ...size },
+      };
+    })
+    .filter(Boolean);
 
-  return {
-    peer_id: normalizePeerId(placement?.peer_id),
-    peer_label: String(placement?.peer_label ?? "").trim(),
-    x: normalized.x,
-    y: normalized.y,
-  };
+  const touchesLocal = new Set(
+    entries.filter((entry) => getTouchingEdge(anchorRect, entry.rect)),
+  );
+  const reached = new Set(touchesLocal);
+  const queue = [...touchesLocal];
+  while (queue.length) {
+    const current = queue.shift();
+    entries.forEach((entry) => {
+      if (!reached.has(entry) && getTouchingEdge(current.rect, entry.rect)) {
+        reached.add(entry);
+        queue.push(entry);
+      }
+    });
+  }
+
+  return entries.map((entry) => {
+    const keep = !entry.peer || (reached.has(entry) && !touchesLocal.has(entry));
+    const position = keep
+      ? entry.position
+      : normalizeConnectedPlacement(
+          entry.position.x,
+          entry.position.y,
+          entry.size,
+          anchorRect,
+        );
+    return {
+      source: entry.placement,
+      normalized: {
+        peer_id: entry.peerId,
+        peer_label: String(entry.placement?.peer_label ?? "").trim(),
+        x: position.x,
+        y: position.y,
+      },
+    };
+  });
 }
 
-function getFallbackPlacement(peerId, index, totalCount) {
-  const count = Math.max(1, totalCount);
-  const angle = ((Math.PI * 2) / count) * index;
-  const jitter =
-    peerId.split("").reduce((sum, ch) => sum + ch.charCodeAt(0), 0) % 40;
-  const radius = FALLBACK_RADIUS + jitter;
+function getLegacyEdge(config, peerId) {
+  return (
+    FALLBACK_EDGE_ORDER.find(
+      (edge) => normalizePeerId(normalizeConfigValue(config?.[edge])) === peerId,
+    ) ?? null
+  );
+}
 
-  return {
-    x: Math.round(Math.cos(angle) * radius),
-    y: Math.round(Math.sin(angle) * radius),
-  };
+function getEdgeCenterTarget(edge, size, anchorRect) {
+  const reachX = anchorRect.width / 2 + size.width / 2;
+  const reachY = anchorRect.height / 2 + size.height / 2;
+  switch (edge) {
+    case "left":
+      return { x: anchorRect.x - reachX, y: anchorRect.y };
+    case "top":
+      return { x: anchorRect.x, y: anchorRect.y - reachY };
+    case "bottom":
+      return { x: anchorRect.x, y: anchorRect.y + reachY };
+    default:
+      return { x: anchorRect.x + reachX, y: anchorRect.y };
+  }
+}
+
+// Gives each unplaced peer, in peer id order, its legacy edge or else the
+// first edge no placed display touches. Mirrors the runtime fallback contacts
+// in src/platform/shared/layout_state.rs, so the dashed spot shown for an
+// unplaced peer is the edge the cursor actually crosses to reach it.
+function assignFallbackEdges(config, unplacedPeerIds, usedEdges) {
+  const used = new Set(usedEdges);
+  const edges = new Map();
+  [...unplacedPeerIds]
+    .sort((a, b) => (a < b ? -1 : a > b ? 1 : 0))
+    .forEach((peerId) => {
+      const preferred = getLegacyEdge(config, peerId) ?? FALLBACK_EDGE_ORDER[0];
+      const edge =
+        [preferred, ...FALLBACK_EDGE_ORDER].find((candidate) => !used.has(candidate)) ??
+        preferred;
+      used.add(edge);
+      edges.set(peerId, edge);
+    });
+  return edges;
 }
 
 // Quarter-steps of the slide reach; 4 would only touch the local display at a corner.
@@ -139,31 +215,33 @@ export function createLayoutModel(config, peers, status = null) {
   const placementMap = new Map();
   const placements = Array.isArray(config?.placements) ? config.placements : [];
 
-  placements.forEach((placement) => {
-    const peerId = normalizePeerId(placement?.peer_id);
-    if (!peerId) {
-      return;
-    }
-
-    const peer = getPeerById(peers, peerId);
-    placementMap.set(peerId, normalizePlacement(placement, peer, anchorRect));
+  normalizePlacements(placements, peers, anchorRect).forEach(({ normalized }) => {
+    placementMap.set(normalized.peer_id, normalized);
   });
-
-  const unplacedPeers = remotePeers.filter(
-    (peer) => !placementMap.has(normalizePeerId(peer.peer_id)),
-  );
-  let unplacedIndex = 0;
 
   // Shown displays a fallback spot must avoid: persisted ones up front, then
   // each fallback as it is assigned.
   const occupied = new Map();
+  const usedEdges = new Set();
   remotePeers.forEach((peer) => {
     const peerId = normalizePeerId(peer.peer_id);
     const existing = placementMap.get(peerId);
     if (existing) {
-      occupied.set(peerId, { peerId, x: existing.x, y: existing.y, size: getNodeSize(peer) });
+      const size = getNodeSize(peer);
+      occupied.set(peerId, { peerId, x: existing.x, y: existing.y, size });
+      const edge = getTouchingEdge(anchorRect, { x: existing.x, y: existing.y, ...size });
+      if (edge) {
+        usedEdges.add(edge);
+      }
     }
   });
+  const fallbackEdges = assignFallbackEdges(
+    config,
+    remotePeers
+      .map((peer) => normalizePeerId(peer.peer_id))
+      .filter((peerId) => !placementMap.has(peerId)),
+    usedEdges,
+  );
 
   return {
     localPeer,
@@ -174,14 +252,9 @@ export function createLayoutModel(config, peers, status = null) {
       const size = getNodeSize(peer);
       let position = existing;
       if (!existing) {
-        const fallback = getFallbackPlacement(
-          peerId,
-          unplacedIndex,
-          unplacedPeers.length,
-        );
-        unplacedIndex += 1;
+        const target = getEdgeCenterTarget(fallbackEdges.get(peerId), size, anchorRect);
         position = findOpenPlacement(
-          normalizePlacement(fallback, peer, anchorRect),
+          normalizeConnectedPlacement(target.x, target.y, size, anchorRect),
           peerId,
           size,
           anchorRect,
@@ -253,21 +326,12 @@ export function buildConfigPayload(config, peers) {
   const currentConfig = config ?? {};
   const anchorRect = getAnchorRect(getLocalPeer(peers));
   const placements = Array.isArray(currentConfig.placements)
-    ? currentConfig.placements
-        .map((placement) => {
-          const peerId = normalizePeerId(placement?.peer_id);
-          if (!peerId) {
-            return null;
-          }
-
-          const peer = getPeerById(peers, peerId);
-          const normalized = normalizePlacement(placement, peer, anchorRect);
-          return {
-            ...placement,
-            ...normalized,
-          };
-        })
-        .filter(Boolean)
+    ? normalizePlacements(currentConfig.placements, peers, anchorRect).map(
+        ({ source, normalized }) => ({
+          ...source,
+          ...normalized,
+        }),
+      )
     : [];
 
   return {

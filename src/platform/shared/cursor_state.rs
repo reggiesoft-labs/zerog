@@ -382,6 +382,24 @@ impl CursorState {
             return false;
         }
 
+        // While this machine drives (or is handing off to) one peer, a third
+        // peer must not take the cursor: the driven peer would never get its
+        // ReleaseControl and could be left with keys held down.
+        let busy_with_other_peer = match &guard.phase {
+            HandoffPhase::AwaitingAck { context, .. } => {
+                context.peer_id != peer_id && context.addr != peer
+            }
+            HandoffPhase::RemoteSession {
+                peer_id: current_peer_id,
+                peer: current_peer,
+                ..
+            } => current_peer_id != peer_id && *current_peer != peer,
+            HandoffPhase::Idle | HandoffPhase::ReceivingSession { .. } => false,
+        };
+        if busy_with_other_peer {
+            return false;
+        }
+
         guard.phase = HandoffPhase::ReceivingSession {
             peer_id: peer_id.to_string(),
             peer,
@@ -875,6 +893,28 @@ mod tests {
         assert!(cursor.begin_inbound("peer-b", peer(), 9));
         assert_eq!(cursor.mode(), TransferMode::LocalControl);
         assert!(cursor.begin_outbound(sample_handoff(4, 10)));
+    }
+
+    #[test]
+    fn third_peer_cannot_take_the_cursor_while_driving_another_peer() {
+        let shared = Arc::new(AtomicU8::new(TransferMode::LocalControl as u8));
+        let cursor = CursorState::new(shared);
+        let third_peer: SocketAddr = "127.0.0.1:5001".parse().unwrap();
+
+        assert!(cursor.begin_outbound(sample_handoff(3, 8)));
+        assert!(!cursor.begin_inbound("peer-c", third_peer, 9));
+        assert_eq!(cursor.phase_name(), "AwaitingAck");
+
+        assert_eq!(
+            cursor.resolve_outbound(Some("peer-b"), peer(), 3, true).0,
+            HandoffAck::Accepted
+        );
+        assert!(!cursor.begin_inbound("peer-c", third_peer, 10));
+        assert_eq!(cursor.phase_name(), "RemoteSession");
+
+        // The driven peer can still hand the cursor back.
+        assert!(cursor.begin_inbound("peer-b", peer(), 11));
+        assert_eq!(cursor.phase_name(), "ReceivingSession");
     }
 
     #[test]

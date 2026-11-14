@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { normalizeConnectedPlacement } from "./layoutMath.js";
 import {
+  buildConfigPayload,
   createLayoutModel,
   getAnchorRect,
   placementWouldOverlap,
@@ -78,5 +79,70 @@ describe("createLayoutModel fallback placement", () => {
     for (const item of model.placements) {
       expectTouchesLocalEdge(model, item);
     }
+  });
+});
+
+describe("createLayoutModel with three machines", () => {
+  const anchorRect = getAnchorRect(localPeer);
+  const size = { width: 180, height: 101 };
+  const rightX = anchorRect.width / 2 + 8 + size.width / 2;
+
+  it("keeps a peer that sits beyond another peer instead of snapping it onto local", () => {
+    // Row of three seen from the left end, as rebased from the middle machine.
+    const near = Math.round(rightX);
+    const far = Math.round(rightX + size.width + 8);
+    const model = buildModel(
+      [
+        { peer_id: "middle", x: near, y: 0 },
+        { peer_id: "far", x: far, y: 0 },
+      ],
+      [makePeer("middle"), makePeer("far")],
+    );
+
+    const byId = new Map(model.placements.map((item) => [item.peerId, item]));
+    expect(byId.get("middle")).toMatchObject({ x: near, y: 0 });
+    expect(byId.get("far")).toMatchObject({ x: far, y: 0 });
+    expectNoOverlaps(model);
+  });
+
+  it("leaves placements for peers this machine does not know untouched on save", () => {
+    const config = {
+      placements: [
+        { peer_id: "middle", x: Math.round(rightX), y: 0 },
+        { peer_id: "stranger", x: 900, y: 300 },
+      ],
+    };
+
+    const payload = buildConfigPayload(config, [localPeer, makePeer("middle")]);
+
+    expect(payload.placements.find((p) => p.peer_id === "stranger")).toMatchObject({
+      x: 900,
+      y: 300,
+    });
+  });
+
+  it("snaps a floating placement back onto the local display", () => {
+    const model = buildModel(
+      [{ peer_id: "lost", x: 900, y: 0 }],
+      [makePeer("lost")],
+    );
+
+    expectTouchesLocalEdge(model, model.placements[0]);
+  });
+
+  it("gives unplaced peers the edges the runtime falls back to", () => {
+    // Runtime: placed peer keeps the right edge; unplaced peers take the
+    // remaining edges in peer id order (left, then top).
+    const model = buildModel(
+      [{ peer_id: "placed", x: Math.round(rightX), y: 0 }],
+      [makePeer("placed"), makePeer("b-zulu"), makePeer("a-yankee")],
+    );
+    const byId = new Map(model.placements.map((item) => [item.peerId, item]));
+
+    expect(byId.get("a-yankee").x).toBeLessThan(0);
+    expect(byId.get("a-yankee").y).toBe(0);
+    expect(byId.get("b-zulu").x).toBe(0);
+    expect(byId.get("b-zulu").y).toBeLessThan(0);
+    expectNoOverlaps(model);
   });
 });

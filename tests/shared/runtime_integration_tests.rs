@@ -10,7 +10,7 @@ use zerog::platform::{DisplayBounds, PeerEdge, TransferMode};
 
 use zerog::platform::shared::test_support::{
     DEFAULT_WAIT_POLL, DEFAULT_WAIT_TIMEOUT, InjectedCall, MODE_STABILITY_WAIT, TestPeerPair,
-    assert_mode_stays, drive_to_edge, expected_receiver_entry, mouse_move, wait_until,
+    TestPeerRow, assert_mode_stays, drive_to_edge, expected_receiver_entry, mouse_move, wait_until,
     suppressed_mouse_move, with_tokio_runtime,
 };
 
@@ -896,6 +896,83 @@ fn owner_local_input_near_entry_does_not_bounce_back() -> Result<()> {
         assert_mode_stays(&pair.a, TransferMode::RemoteControl, MODE_STABILITY_WAIT)?;
         assert_mode_stays(&pair.b, TransferMode::LocalControl, MODE_STABILITY_WAIT)?;
         assert!(pair.a.take_injected().is_empty());
+
+        Ok(())
+    })
+}
+
+#[test]
+#[serial]
+fn remote_driven_cursor_does_not_hand_off_to_a_third_peer() -> Result<()> {
+    with_tokio_runtime(|| {
+        let row = TestPeerRow::new()?;
+        let along_axis = 500;
+
+        drive_to_edge(&row.a, PeerEdge::Right, along_axis)?;
+        row.a
+            .wait_for_mode(TransferMode::RemoteControl, DEFAULT_WAIT_TIMEOUT)?;
+        row.b
+            .wait_for_mode(TransferMode::LocalControl, DEFAULT_WAIT_TIMEOUT)?;
+        row.b
+            .wait_for_calls("handoff into middle peer", DEFAULT_WAIT_TIMEOUT, |calls| {
+                calls
+                    .iter()
+                    .any(|call| matches!(call, InjectedCall::CursorWarped { .. }))
+            })?;
+        std::thread::sleep(TRANSITION_COOLDOWN_WAIT);
+
+        // A's mouse pushes B's cursor all the way into B's right edge, where C
+        // sits. Handing on to C would strand A, so B must keep the cursor.
+        let bounds = row.b.display_bounds();
+        let right_x = bounds.x + bounds.width as i32 - 1;
+        for _ in 0..30 {
+            row.a.emit(mouse_move(0, 0, 120, 0))?;
+            std::thread::sleep(Duration::from_millis(5));
+        }
+        wait_until(
+            "middle peer cursor reaches its right edge",
+            DEFAULT_WAIT_TIMEOUT,
+            DEFAULT_WAIT_POLL,
+            || row.b.cursor_pos().0 == right_x,
+            || row.b.debug_snapshot(),
+        )?;
+        for _ in 0..10 {
+            row.a.emit(mouse_move(0, 0, 40, 0))?;
+            std::thread::sleep(Duration::from_millis(5));
+        }
+
+        assert_mode_stays(&row.b, TransferMode::LocalControl, MODE_STABILITY_WAIT)?;
+        assert_eq!(row.a.transfer_mode(), TransferMode::RemoteControl);
+        assert!(
+            !row.c
+                .take_injected()
+                .iter()
+                .any(|call| matches!(call, InjectedCall::CursorWarped { .. })),
+            "third peer must not receive the cursor: {}",
+            row.c.debug_snapshot()
+        );
+
+        // The driver can still take the cursor back across B's left edge.
+        for _ in 0..40 {
+            row.a.emit(mouse_move(0, 0, -120, 0))?;
+            std::thread::sleep(Duration::from_millis(5));
+        }
+        row.a
+            .wait_for_mode(TransferMode::LocalControl, DEFAULT_WAIT_TIMEOUT)?;
+        Ok(())
+    })
+}
+
+#[test]
+#[serial]
+fn middle_peer_can_assign_two_peers_to_the_same_edge() -> Result<()> {
+    with_tokio_runtime(|| {
+        let row = TestPeerRow::new()?;
+
+        row.b.reconcile_peer_edges(&EdgeAssignments::from_pairs([
+            (row.a.peer_id.clone(), PeerEdge::Right),
+            (row.c.peer_id.clone(), PeerEdge::Right),
+        ]))?;
 
         Ok(())
     })

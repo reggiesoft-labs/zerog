@@ -1,8 +1,10 @@
 use crate::core::api::ConfigSnapshot;
 use crate::core::config;
 use crate::core::error::{CoreError, CoreResult};
-use crate::core::events::LayoutUpdateEvent;
+use crate::core::events::{LayoutPlacement, LayoutUpdateEvent};
+use crate::core::peer_state::canonical_peer_id;
 use crate::core::platform::types::PeerEdge;
+use std::collections::HashSet;
 use std::sync::{Arc, Mutex};
 
 #[derive(Clone)]
@@ -90,15 +92,37 @@ impl ConfigStore {
         update: LayoutUpdateEvent,
     ) -> CoreResult<Option<ConfigSnapshot>> {
         let mut snapshot = self.snapshot.lock().unwrap_or_else(|e| e.into_inner());
-        if snapshot.placements == update.placements {
+        let placements = merge_remote_placements(&snapshot.placements, update.placements);
+        if snapshot.placements == placements {
             return Ok(None);
         }
 
-        snapshot.placements = update.placements;
+        snapshot.placements = placements;
         drop(snapshot);
         self.persist()?;
         Ok(Some(self.snapshot()))
     }
+}
+
+/// Takes the sender's (already rebased) placements and keeps local placements
+/// for peers the sender does not know, so a machine that is not paired with
+/// every other machine does not wipe their positions here.
+fn merge_remote_placements(
+    current: &[LayoutPlacement],
+    remote: Vec<LayoutPlacement>,
+) -> Vec<LayoutPlacement> {
+    let remote_ids: HashSet<String> = remote
+        .iter()
+        .map(|placement| canonical_peer_id(&placement.peer_id))
+        .collect();
+    let mut merged = remote;
+    merged.extend(
+        current
+            .iter()
+            .filter(|placement| !remote_ids.contains(&canonical_peer_id(&placement.peer_id)))
+            .cloned(),
+    );
+    merged
 }
 
 pub(super) fn primary_peer_edge(config: &ConfigSnapshot) -> PeerEdge {
@@ -112,5 +136,33 @@ pub(super) fn primary_peer_edge(config: &ConfigSnapshot) -> PeerEdge {
         PeerEdge::Bottom
     } else {
         PeerEdge::Right
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::merge_remote_placements;
+    use crate::core::events::LayoutPlacement;
+
+    fn placement(peer_id: &str, x: i32) -> LayoutPlacement {
+        LayoutPlacement {
+            peer_id: peer_id.to_string(),
+            peer_label: String::new(),
+            x,
+            y: 0,
+        }
+    }
+
+    #[test]
+    fn remote_layout_keeps_placements_for_peers_the_sender_does_not_know() {
+        let current = vec![placement("peer-a", -166), placement("peer-c", 166)];
+        let remote = vec![placement("peer-a", -170)];
+
+        let merged = merge_remote_placements(&current, remote);
+
+        assert_eq!(
+            merged,
+            vec![placement("peer-a", -170), placement("peer-c", 166)]
+        );
     }
 }

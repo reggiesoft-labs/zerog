@@ -69,7 +69,8 @@ describe("edge projection primitives", () => {
 
   it("right-edge slide range keeps contact x fixed while y slides", () => {
     const rightRange = getEdgeSlideRange(anchorRect, peerRect, "right");
-    expect(rightRange).toEqual({ min: -90, max: 90 });
+    // Full reach (+-90) minus the 16 units of edge a neighbour must keep.
+    expect(rightRange).toEqual({ min: -74, max: 74 });
 
     const a = projectToConnectedEdge(280, -20, anchorRect, peerRect, EDGE_MARGIN);
     const b = projectToConnectedEdge(280, 40, anchorRect, peerRect, EDGE_MARGIN);

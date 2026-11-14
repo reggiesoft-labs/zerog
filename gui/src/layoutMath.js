@@ -16,6 +16,16 @@ export const LAYOUT_COORDINATE_BOUNDS = {
 };
 
 export const EDGE_MARGIN = 8;
+// Largest gap between facing edges that still counts as touching. Mirrors
+// MAX_CONTACT_GAP in src/core/layout.rs, which drops runtime contacts to
+// displays further away (such as the far end of a row of three).
+export const MAX_CONTACT_GAP = EDGE_MARGIN + 48;
+// Shared edge length a snapped display keeps with its neighbour, so a corner
+// placement still leaves room to cross. Mirrors MIN_EDGE_OVERLAP in
+// src/core/layout.rs.
+export const MIN_EDGE_OVERLAP = 16;
+// Displays may overlap by the editor's collision padding on both sides.
+const MIN_CONTACT_GAP = -8;
 
 const EDGE_TOP = "top";
 const EDGE_RIGHT = "right";
@@ -42,19 +52,40 @@ function getEdgeContactCoordinates(anchorRect, peerRect, edge, edgeMargin) {
 }
 
 export function getEdgeSlideRange(anchorRect, peerRect, edge) {
-  if (edge === EDGE_RIGHT || edge === EDGE_LEFT) {
-    const halfSpan = (anchorRect.height + peerRect.height) / 2;
-    return {
-      min: anchorRect.y - halfSpan,
-      max: anchorRect.y + halfSpan,
-    };
-  }
-
-  const halfSpan = (anchorRect.width + peerRect.width) / 2;
+  const horizontal = edge === EDGE_RIGHT || edge === EDGE_LEFT;
+  const center = horizontal ? anchorRect.y : anchorRect.x;
+  const anchorLength = horizontal ? anchorRect.height : anchorRect.width;
+  const peerLength = horizontal ? peerRect.height : peerRect.width;
+  const minOverlap = Math.min(MIN_EDGE_OVERLAP, anchorLength, peerLength);
+  const halfSpan = (anchorLength + peerLength) / 2 - minOverlap;
   return {
-    min: anchorRect.x - halfSpan,
-    max: anchorRect.x + halfSpan,
+    min: center - halfSpan,
+    max: center + halfSpan,
   };
+}
+
+// Edge of `anchorRect` that `peerRect` touches, or null when the two do not
+// share a stretch of edge within MAX_CONTACT_GAP. Rects are centre-based.
+export function getTouchingEdge(anchorRect, peerRect) {
+  const overlapX =
+    Math.min(anchorRect.x + anchorRect.width / 2, peerRect.x + peerRect.width / 2) -
+    Math.max(anchorRect.x - anchorRect.width / 2, peerRect.x - peerRect.width / 2);
+  const overlapY =
+    Math.min(anchorRect.y + anchorRect.height / 2, peerRect.y + peerRect.height / 2) -
+    Math.max(anchorRect.y - anchorRect.height / 2, peerRect.y - peerRect.height / 2);
+  const gapX =
+    Math.abs(peerRect.x - anchorRect.x) - (anchorRect.width + peerRect.width) / 2;
+  const gapY =
+    Math.abs(peerRect.y - anchorRect.y) - (anchorRect.height + peerRect.height) / 2;
+
+  const touches = (gap) => gap >= MIN_CONTACT_GAP && gap <= MAX_CONTACT_GAP;
+  if (overlapY > 0 && gapX >= gapY && touches(gapX)) {
+    return peerRect.x > anchorRect.x ? EDGE_RIGHT : EDGE_LEFT;
+  }
+  if (overlapX > 0 && gapY > gapX && touches(gapY)) {
+    return peerRect.y > anchorRect.y ? EDGE_BOTTOM : EDGE_TOP;
+  }
+  return null;
 }
 
 function nearestByDistanceThenPriority(

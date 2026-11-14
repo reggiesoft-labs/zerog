@@ -614,18 +614,12 @@ impl crate::core::platform::SessionEngine for SessionManager {
 
     fn reconcile_peer_edges(&self, assignments: &EdgeAssignments) -> Result<()> {
         let mut state = self.state.lock().unwrap_or_else(|e| e.into_inner());
+        // Several peers may share an edge: layout placements split an edge
+        // into spans, and fallback contacts spread unplaced peers over free
+        // edges, so a shared preferred edge is not a conflict.
         let mut next_edges = HashMap::new();
-        let mut assigned_edges = HashMap::new();
         for (peer_id, record) in &state.peers {
             let edge = assignments.edge_for_peer(peer_id).unwrap_or(record.edge);
-            if let Some(existing_peer_id) = assigned_edges.insert(edge, peer_id.clone()) {
-                anyhow::bail!(
-                    "cannot assign edge {} to both {} and {}",
-                    edge.as_str(),
-                    existing_peer_id,
-                    peer_id
-                );
-            }
             next_edges.insert(peer_id.clone(), edge);
         }
         for (peer_id, record) in state.peers.iter_mut() {

@@ -70,8 +70,15 @@ fn handle_owner_mouse_move(
     if ctx.cursor.has_pressed_buttons() {
         return;
     }
-    let Some(target) = confirm_outbound_target(ctx, topology, source_position, (dx, dy), sample_us)
-    else {
+    let remote_driven = return_motion.is_some();
+    let Some(target) = confirm_outbound_target(
+        ctx,
+        topology,
+        source_position,
+        (dx, dy),
+        sample_us,
+        remote_driven,
+    ) else {
         return;
     };
 
@@ -100,8 +107,10 @@ fn confirm_outbound_target(
     position: (i32, i32),
     movement: (i32, i32),
     sample_us: u64,
+    remote_driven: bool,
 ) -> Option<OutboundTarget> {
-    let (detected, outward_push_px) = detect_outbound_target(ctx, topology, position, movement);
+    let (detected, outward_push_px) =
+        detect_outbound_target(ctx, topology, position, movement, remote_driven);
     let mut detector = ctx
         .edge_detector
         .lock()
@@ -259,6 +268,7 @@ fn detect_outbound_target(
     topology: &DisplayTopology,
     (local_x, local_y): (i32, i32),
     (dx, dy): (i32, i32),
+    remote_driven: bool,
 ) -> (Option<OutboundTarget>, u32) {
     let (x, y) = (local_x as f64, local_y as f64);
     let mut edges = [
@@ -286,6 +296,22 @@ fn detect_outbound_target(
         let Some(contact) = ctx.layout.contact_for_position(edge, position_bp) else {
             continue;
         };
+        // Motion that arrives from the peer driving this cursor may only hand
+        // the cursor back to that peer. Handing it on to a third machine would
+        // strand the driver: its input keeps arriving here, where it is
+        // dropped once this machine stops owning the cursor.
+        if remote_driven
+            && !ctx
+                .cursor
+                .is_session_peer(Some(&contact.peer_id), contact.addr)
+        {
+            trace!(
+                peer_id = %contact.peer_id,
+                edge = ?edge,
+                "blocked onward handoff while driven by a remote peer"
+            );
+            continue;
+        }
         if ctx.network.is_peer_timed_out(contact.addr) {
             continue;
         }
