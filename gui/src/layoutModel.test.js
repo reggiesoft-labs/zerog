@@ -80,6 +80,35 @@ describe("createLayoutModel fallback placement", () => {
       expectTouchesLocalEdge(model, item);
     }
   });
+
+  it("moves a later persisted placement off an earlier one it overlaps", () => {
+    // A remote layout merged ahead of a stale local placement for a peer the
+    // sender does not know, both on the local right edge.
+    const peers = [
+      makePeer("mac", { x: 0, y: 0, width: 3024, height: 1964 }),
+      makePeer("windows"),
+    ];
+    const rightSpot = buildModel([], [makePeer("windows")]).placements[0];
+    const model = buildModel(
+      [
+        { peer_id: "windows", x: rightSpot.x, y: rightSpot.y },
+        { peer_id: "mac", x: rightSpot.x + 24, y: rightSpot.y - 3 },
+      ],
+      peers,
+    );
+
+    const byId = new Map(model.placements.map((item) => [item.peerId, item]));
+    expect(byId.get("windows")).toMatchObject({ x: rightSpot.x, y: rightSpot.y, repaired: false });
+    expect(byId.get("mac").repaired).toBe(true);
+    expectNoOverlaps(model);
+    expectTouchesLocalEdge(model, byId.get("mac"));
+
+    const resaved = buildModel(
+      model.placements.map(({ peerId, x, y }) => ({ peer_id: peerId, x, y })),
+      peers,
+    );
+    expect(resaved.placements.some((item) => item.repaired)).toBe(false);
+  });
 });
 
 describe("createLayoutModel with three machines", () => {

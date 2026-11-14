@@ -2,6 +2,7 @@ import { createLayoutInteraction } from "./layoutInteraction.js";
 import {
   buildConfigPayload,
   createLayoutModel,
+  updateConfigPlacement,
 } from "./layoutModel.js";
 import { createLayoutRenderer } from "./layoutRenderer.js";
 
@@ -18,7 +19,29 @@ export function createLayoutController({
   onDragEnd,
 }) {
   function getLayoutModel() {
-    return createLayoutModel(state.config, state.peers, state.status);
+    const model = createLayoutModel(state.config, state.peers, state.status);
+    saveRepairedPlacements(model);
+    return model;
+  }
+
+  // Persists placements the model moved off another display, so the runtime
+  // and the other machines use the same non-overlapping layout the editor shows.
+  function saveRepairedPlacements(model) {
+    const repaired = model.placements.filter((item) => item.repaired);
+    if (!repaired.length || state.layoutDrag) {
+      return;
+    }
+    repaired.forEach((item) => {
+      state.config = updateConfigPlacement(
+        state.config,
+        item.peer,
+        item.x,
+        item.y,
+        state.peers,
+      );
+    });
+    markConfigEdited();
+    scheduleConfigSave();
   }
 
   function scheduleConfigSave(delayMs = CONFIG_SAVE_DEBOUNCE_MS) {

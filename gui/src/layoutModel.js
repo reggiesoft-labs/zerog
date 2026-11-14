@@ -220,19 +220,39 @@ export function createLayoutModel(config, peers, status = null) {
   });
 
   // Shown displays a fallback spot must avoid: persisted ones up front, then
-  // each fallback as it is assigned.
+  // each fallback as it is assigned. Persisted placements are taken in config
+  // order, and one that collides with an earlier one is moved to an open spot
+  // (flagged `repaired` so the editor saves it). A merged remote layout lists
+  // the sender's placements first, so a stale local placement for a peer the
+  // sender does not know is the one that yields.
+  const shownPeers = new Map(
+    remotePeers.map((peer) => [normalizePeerId(peer.peer_id), peer]),
+  );
   const occupied = new Map();
   const usedEdges = new Set();
-  remotePeers.forEach((peer) => {
-    const peerId = normalizePeerId(peer.peer_id);
-    const existing = placementMap.get(peerId);
-    if (existing) {
-      const size = getNodeSize(peer);
-      occupied.set(peerId, { peerId, x: existing.x, y: existing.y, size });
-      const edge = getTouchingEdge(anchorRect, { x: existing.x, y: existing.y, ...size });
-      if (edge) {
-        usedEdges.add(edge);
-      }
+  const repairedPeerIds = new Set();
+  placementMap.forEach((existing, peerId) => {
+    const peer = shownPeers.get(peerId);
+    if (!peer) {
+      return;
+    }
+    const size = getNodeSize(peer);
+    const position = findOpenPlacement(
+      existing,
+      peerId,
+      size,
+      anchorRect,
+      occupied,
+      localPeer,
+    );
+    if (position.x !== existing.x || position.y !== existing.y) {
+      placementMap.set(peerId, { ...existing, x: position.x, y: position.y });
+      repairedPeerIds.add(peerId);
+    }
+    occupied.set(peerId, { peerId, x: position.x, y: position.y, size });
+    const edge = getTouchingEdge(anchorRect, { x: position.x, y: position.y, ...size });
+    if (edge) {
+      usedEdges.add(edge);
     }
   });
   const fallbackEdges = assignFallbackEdges(
@@ -271,6 +291,7 @@ export function createLayoutModel(config, peers, status = null) {
         y: position.y,
         size,
         persisted: Boolean(existing),
+        repaired: repairedPeerIds.has(peerId),
       };
     }),
   };
