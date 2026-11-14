@@ -317,6 +317,9 @@ fn test_partition_reconnect_resyncs_clipboard() -> Result<()> {
         let b2_addr = b2.addr()?;
         pair.a.add_peer(b2.peer_ref(), b2_addr, PeerEdge::Right)?;
         b2.add_peer(pair.a.peer_ref(), pair.a.addr()?, PeerEdge::Left)?;
+        // add_peer only registers the peer; the session needs the handshake
+        // the controller's dialer performs in the app.
+        pair.a.connect_to(b2_addr)?;
 
         wait_until(
             "clipboard re-sync after reconnect",
@@ -475,6 +478,9 @@ fn test_peer_disconnect_clears_state() -> Result<()> {
         let b2_addr = b2.addr()?;
         pair.a.add_peer(b2.peer_ref(), b2_addr, PeerEdge::Right)?;
         b2.add_peer(pair.a.peer_ref(), pair.a.addr()?, PeerEdge::Left)?;
+        // add_peer only registers the peer; the session needs the handshake
+        // the controller's dialer performs in the app.
+        pair.a.connect_to(b2_addr)?;
 
         pair.a.clipboard().set_clipboard_text("After reconnect")?;
 
