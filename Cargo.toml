@@ -8,7 +8,7 @@ tokio = { version = "1", features = ["rt", "rt-multi-thread", "time", "sync", "m
 
 [package]
 name = "zerog"
-version = "1.0.3"
+version = "1.1.0"
 edition = "2024"
 license = "MIT"
 
