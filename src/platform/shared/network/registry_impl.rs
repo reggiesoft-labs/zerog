@@ -169,6 +169,15 @@ impl PeerRegistry {
             .collect()
     }
 
+    pub(crate) fn peer_addr(&self, peer_id: &str) -> Option<SocketAddr> {
+        self.state
+            .lock()
+            .unwrap()
+            .peers
+            .get(peer_id)
+            .and_then(|peer| peer.addr)
+    }
+
     pub(crate) fn peer_id_for_addr(&self, addr: SocketAddr) -> Option<String> {
         self.state
             .lock()

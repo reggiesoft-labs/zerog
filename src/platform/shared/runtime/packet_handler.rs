@@ -7,6 +7,7 @@ use std::net::SocketAddr;
 use std::sync::Arc;
 
 use crate::core::layout::rebase_layout_update;
+use crate::core::peer_state::canonical_peer_id;
 use tracing::{debug, info, trace, warn};
 
 use crate::events::{Event, LayoutUpdateEvent, MotionCheckpoint, PROTOCOL_VERSION, Packet};
@@ -23,6 +24,7 @@ use super::motion::OutboundMotion;
 use super::process_network_event_internal;
 use super::smoother::MovementSmoother;
 use super::transport::is_input_event;
+use crate::platform::shared::cursor_state::RedirectAck;
 
 struct IncomingHandoff {
     request: HandoffRequest,
@@ -111,6 +113,7 @@ fn handle_received_event(
             motion_session_id,
             return_motion,
             caps_lock,
+            via_peer_id,
             ..
         } => {
             let Some(request) = HandoffRequest::from_wire(
@@ -145,10 +148,24 @@ fn handle_received_event(
                 request_seq,
                 sender_id,
                 request,
+                via_peer_id.as_deref(),
                 smoother,
                 outbound_motion,
             );
         }
+        Event::RedirectControl {
+            target_peer_id,
+            edge,
+            receiver_position_bp,
+            motion_session_id,
+        } => handle_redirect_request(
+            ctx,
+            conn,
+            &target_peer_id,
+            edge,
+            receiver_position_bp,
+            motion_session_id,
+        ),
         Event::TakeControlAck {
             request_seq,
             accepted,
@@ -362,6 +379,7 @@ fn handle_take_control_request(
     request_seq: u32,
     sender_id: u64,
     request: HandoffRequest,
+    via_peer_id: Option<&str>,
     smoother: &mut MovementSmoother,
     outbound_motion: &mut OutboundMotion,
 ) {
@@ -392,7 +410,8 @@ fn handle_take_control_request(
         "received TakeControl"
     );
 
-    let Some(handoff) = prepare_handoff(ctx, conn, request_seq, sender_id, request) else {
+    let Some(handoff) = prepare_handoff(ctx, conn, request_seq, sender_id, request, via_peer_id)
+    else {
         return;
     };
     if !ctx
@@ -488,6 +507,7 @@ fn prepare_handoff(
     request_seq: u32,
     sender_id: u64,
     request: HandoffRequest,
+    via_peer_id: Option<&str>,
 ) -> Option<IncomingHandoff> {
     let addr = conn.addr();
     let receiver_edge = match request.edge {
@@ -500,9 +520,13 @@ fn prepare_handoff(
         .network
         .peer_id_for_addr(addr)
         .or_else(|| ctx.network.peer_id_for_conn_addr(addr));
+    // A handoff relayed by the driving peer crosses the edge this machine
+    // shares with `via_peer_id`, so the entry point comes from that contact.
+    let edge_peer_id = via_peer_id.map(canonical_peer_id);
     let contact = sender_peer_id.as_deref().and_then(|peer_id| {
+        let edge_peer = edge_peer_id.as_deref().unwrap_or(peer_id);
         ctx.layout
-            .contact_for_peer_local_position(peer_id, receiver_edge, request.receiver_position_bp)
+            .contact_for_peer_local_position(edge_peer, receiver_edge, request.receiver_position_bp)
             .map(|contact| (peer_id.to_owned(), contact))
     });
     let Some((sender_peer_id, contact)) = contact else {
@@ -685,11 +709,38 @@ fn handle_take_control_ack(
         .peer_id_for_addr(addr)
         .or_else(|| ctx.network.peer_id_for_conn_addr(addr));
 
+    if let Some(outcome) =
+        ctx.cursor
+            .resolve_redirect(peer_id.as_deref(), addr, request_seq, accepted)
+    {
+        complete_redirect(ctx, outcome);
+        return;
+    }
+
     let (runtime_result, handoff_context) =
         ctx.cursor
             .resolve_outbound(peer_id.as_deref(), addr, request_seq, accepted);
 
     let Some(context) = handoff_context else {
+        if accepted
+            && ctx
+                .cursor
+                .take_abandoned_redirect(peer_id.as_deref(), addr, request_seq)
+        {
+            // The redirect was given up before this peer answered; it now
+            // owns a cursor nobody drives.
+            info!(
+                domain = "runtime.transition",
+                transition_key = "redirect_released_late_accept",
+                peer = %addr,
+                request_seq,
+                "releasing peer that accepted an abandoned redirect"
+            );
+            let _ = ctx
+                .network
+                .send_packet_to(addr, vec![Event::ReleaseControl]);
+            return;
+        }
         debug!(
             domain = "runtime.transition",
             transition_key = "handoff_ack_stale",
@@ -743,6 +794,161 @@ fn handle_take_control_ack(
         "TakeControl rejected"
     );
     restore_local_control_after_failed_handoff(ctx, smoother, &context);
+}
+
+/// Driver side of a multi-hop handoff: the peer this machine drives reached
+/// an edge shared with `target_peer_id`. Hands the cursor on to that peer
+/// while input keeps flowing to the current one until it accepts.
+fn handle_redirect_request(
+    ctx: &ThreadContext,
+    conn: &Arc<PeerConnection>,
+    target_peer_id: &str,
+    edge: PeerEdge,
+    receiver_position_bp: u16,
+    motion_session_id: u64,
+) {
+    let addr = conn.addr();
+    let sender_peer_id = ctx
+        .network
+        .peer_id_for_addr(addr)
+        .or_else(|| ctx.network.peer_id_for_conn_addr(addr));
+    let target_peer_id = canonical_peer_id(target_peer_id);
+    let ignore = |reason: &'static str| {
+        debug!(
+            domain = "runtime.transition",
+            transition_key = "redirect_ignored",
+            peer = %addr,
+            sender_peer_id = ?sender_peer_id,
+            target_peer_id = %target_peer_id,
+            handoff_id = motion_session_id,
+            phase = ctx.cursor.phase_name(),
+            reason,
+            "ignored RedirectControl"
+        );
+    };
+
+    let Some((session_peer_id, session_peer, session_motion_id)) = ctx.cursor.remote_session()
+    else {
+        ignore("not_driving");
+        return;
+    };
+    let from_session_peer =
+        session_peer == addr || sender_peer_id.as_deref() == Some(session_peer_id.as_str());
+    if !from_session_peer || session_motion_id != motion_session_id {
+        ignore("stale_session");
+        return;
+    }
+    let local_peer_id = ctx
+        .local_identity
+        .as_ref()
+        .map(|peer| peer.peer_id.as_str());
+    if target_peer_id.is_empty()
+        || target_peer_id == session_peer_id
+        || Some(target_peer_id.as_str()) == local_peer_id
+    {
+        ignore("invalid_target");
+        return;
+    }
+    let Some(target_addr) = ctx.network.peer_addr(&target_peer_id) else {
+        ignore("unknown_target");
+        return;
+    };
+    if ctx.network.is_peer_timed_out(target_addr)
+        || ctx.network.connection_for_addr(target_addr).is_none()
+    {
+        ignore("target_unreachable");
+        return;
+    }
+
+    let next_motion_session_id = ctx.network.next_motion_session_id();
+    let request = HandoffRequest::new(edge, receiver_position_bp, next_motion_session_id, None)
+        .expect("motion session id is non-zero")
+        .with_caps_lock(ctx.injection.caps_lock_active());
+    let request_seq = match ctx.network.send_packet_to_with_seq(
+        target_addr,
+        vec![request.into_wire_event_via(Some(session_peer_id.clone()))],
+    ) {
+        Ok(request_seq) => request_seq,
+        Err(error) => {
+            warn!(error = %error, target_peer_id = %target_peer_id, "failed to send redirected TakeControl");
+            return;
+        }
+    };
+    let context = super::super::transition::HandoffContext {
+        peer_id: target_peer_id.clone(),
+        addr: target_addr,
+        request_seq,
+        motion_session_id: next_motion_session_id,
+        edge,
+        receiver_position_bp,
+        source_position: ctx.cursor.recovery_position().unwrap_or_default(),
+        started_us: ctx.network.mono_us(),
+    };
+    if !ctx.cursor.begin_redirect(context) {
+        ignore("runtime_busy");
+        return;
+    }
+    info!(
+        domain = "runtime.transition",
+        transition_key = "redirect_started",
+        handoff_id = next_motion_session_id,
+        phase = "Redirecting",
+        via_peer_id = %session_peer_id,
+        target_peer_id = %target_peer_id,
+        peer = %target_addr,
+        request_seq,
+        edge = ?edge,
+        receiver_position_bp,
+        "handing driven cursor on to the next machine"
+    );
+}
+
+fn complete_redirect(ctx: &ThreadContext, outcome: RedirectAck) {
+    match outcome {
+        RedirectAck::Accepted {
+            context,
+            previous_peer_id,
+            previous_peer,
+        } => {
+            // Deliver everything already queued for the previous peer (key
+            // releases in particular) before input switches over.
+            if let Err(error) = ctx.network.flush_pending_input_now() {
+                debug!(error = %error, "failed to flush input before redirect");
+            }
+            ctx.network
+                .start_outbound_input(context.addr, context.motion_session_id);
+            let release_addr = ctx
+                .network
+                .peer_addr(&previous_peer_id)
+                .unwrap_or(previous_peer);
+            if let Err(error) = ctx
+                .network
+                .send_packet_to(release_addr, vec![Event::ReleaseControl])
+            {
+                warn!(error = %error, peer_id = %previous_peer_id, "failed to release previous peer after redirect");
+            }
+            info!(
+                domain = "runtime.transition",
+                transition_key = "redirect_completed",
+                handoff_id = context.motion_session_id,
+                phase = "RemoteSession",
+                previous_peer_id = %previous_peer_id,
+                peer_id = %context.peer_id,
+                peer = %context.addr,
+                "driven cursor moved on to the next machine"
+            );
+        }
+        RedirectAck::Rejected { context } => {
+            info!(
+                domain = "runtime.transition",
+                transition_key = "redirect_rejected",
+                handoff_id = context.motion_session_id,
+                peer_id = %context.peer_id,
+                peer = %context.addr,
+                "next machine refused the driven cursor; staying on the current one"
+            );
+        }
+    }
 }
 
 fn restore_local_control_after_failed_handoff(

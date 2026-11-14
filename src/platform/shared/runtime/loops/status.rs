@@ -20,6 +20,7 @@ pub(crate) fn process_network_event_internal(
             motion_session_id: _,
             return_motion: _,
             caps_lock: _,
+            via_peer_id: _,
         } => process_legacy_take_control(injection, cursor, initial_x, initial_y),
         Event::TakeControlAck { .. } => Ok(()),
         Event::ReleaseControl => {
@@ -28,7 +29,8 @@ pub(crate) fn process_network_event_internal(
             }
             Ok(())
         }
-        Event::Heartbeat { .. }
+        Event::RedirectControl { .. }
+        | Event::Heartbeat { .. }
         | Event::Ping { .. }
         | Event::Pong { .. }
         | Event::LayoutUpdate(_)
@@ -178,6 +180,7 @@ mod process_network_event_tests {
                 motion_session_id: 1,
                 return_motion: None,
                 caps_lock: None,
+                via_peer_id: None,
             },
         )
         .expect("take control should succeed");

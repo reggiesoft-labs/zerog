@@ -20,7 +20,7 @@ use serde::{Deserialize, Serialize};
 use crate::core::platform::{DisplayBounds, PeerEdge};
 
 /// Current protocol version. Peers with mismatched versions will reject packets.
-pub const PROTOCOL_VERSION: u8 = 13;
+pub const PROTOCOL_VERSION: u8 = 14;
 
 /// Current transfer state of a peer in the connection.
 ///
@@ -150,6 +150,12 @@ pub enum Event {
         /// keyboard LED on the sender) agree on Caps Lock for the session.
         #[serde(default)]
         caps_lock: Option<bool>,
+        /// Peer whose edge the cursor is crossing from, when that is not the
+        /// sender. Set when the sender drives the cursor through a middle
+        /// machine onto a machine it does not touch: the receiver places the
+        /// cursor using its contact with this peer instead of the sender.
+        #[serde(default)]
+        via_peer_id: Option<String>,
     },
     TakeControlAck {
         request_seq: u32,
@@ -281,6 +287,20 @@ pub enum Event {
     FileCancel {
         transfer_id: String,
     },
+    /// Sent by a machine whose cursor is driven by a remote peer, asking that
+    /// driver to hand the cursor on to `target_peer_id`, which touches the
+    /// sender's `edge` but not the driver.
+    RedirectControl {
+        /// Peer the cursor should move on to.
+        target_peer_id: String,
+        /// Edge of the sender the cursor is crossing.
+        edge: PeerEdge,
+        /// Entry position along the target's edge in basis points.
+        receiver_position_bp: u16,
+        /// Motion session the driver opened with the sender; stale requests
+        /// from an earlier session are ignored.
+        motion_session_id: u64,
+    },
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -323,7 +343,7 @@ mod wire_format_tests {
 
     /// Number of variants in [`Event`]. Bumping this is only correct when a
     /// variant is added to both the enum and [`canonical_packet`].
-    const EVENT_VARIANT_COUNT: usize = 28;
+    const EVENT_VARIANT_COUNT: usize = 29;
 
     /// Stable label for every [`Event`] variant.
     ///
@@ -359,6 +379,7 @@ mod wire_format_tests {
             Event::FileChunk { .. } => "FileChunk",
             Event::FileAck { .. } => "FileAck",
             Event::FileCancel { .. } => "FileCancel",
+            Event::RedirectControl { .. } => "RedirectControl",
         }
     }
 
@@ -404,6 +425,7 @@ mod wire_format_tests {
                     total_dy: 8,
                 }),
                 caps_lock: Some(true),
+                via_peer_id: Some("peer-c".to_string()),
             },
             Event::TakeControlAck {
                 request_seq: 9,
@@ -519,6 +541,12 @@ mod wire_format_tests {
             Event::FileCancel {
                 transfer_id: "tx-1".to_string(),
             },
+            Event::RedirectControl {
+                target_peer_id: "peer-c".to_string(),
+                edge: PeerEdge::Left,
+                receiver_position_bp: 2_500,
+                motion_session_id: 56,
+            },
         ];
 
         Packet {
@@ -578,7 +606,7 @@ mod wire_format_tests {
         let hex: String = digest.iter().map(|byte| format!("{byte:02x}")).collect();
 
         assert_eq!(
-            hex, "ff99386fff7715265fdddfecc7eb39a68934418f7be5e4c44d98183a94d5090d",
+            hex, "a021029302af8280e4dbd1a3e6f10f0ff7a6345697a0076f43cbeca15e5d3ac6",
             "wire format changed ({} bytes). If this is intentional, bump \
              PROTOCOL_VERSION and update the golden digest here.",
             bytes.len()

@@ -291,6 +291,10 @@ impl NetworkState {
         self.peers.peer_id_for_addr(addr)
     }
 
+    pub(crate) fn peer_addr(&self, peer_id: &str) -> Option<SocketAddr> {
+        self.peers.peer_addr(peer_id)
+    }
+
     pub(crate) fn peer_display_bounds(&self, peer_id: &str) -> Option<DisplayBounds> {
         self.peers.peer_display_bounds(peer_id)
     }
@@ -834,6 +838,22 @@ fn log_outbound_events(addr: Option<SocketAddr>, events: &[Event]) {
                 );
             }
             Event::TakeControlAck { .. } => {}
+            Event::RedirectControl {
+                target_peer_id,
+                edge,
+                motion_session_id,
+                ..
+            } => {
+                info!(
+                    domain = "runtime.transition",
+                    transition_key = "redirect_request_sent",
+                    handoff_id = *motion_session_id,
+                    peer = ?addr,
+                    target_peer_id = %target_peer_id,
+                    edge = ?edge,
+                    "sending RedirectControl"
+                );
+            }
             Event::ConnectionRequest {
                 peer_id, peer_name, ..
             } => {
@@ -1235,6 +1255,7 @@ mod tests {
                     motion_session_id: 1,
                     return_motion: None,
                     caps_lock: None,
+                    via_peer_id: None,
                 }],
             );
 

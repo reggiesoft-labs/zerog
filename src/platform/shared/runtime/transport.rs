@@ -39,6 +39,7 @@ pub(crate) fn needs_reliable_transport(event: &Event) -> bool {
         Event::TakeControl { .. }
             | Event::TakeControlAck { .. }
             | Event::ReleaseControl
+            | Event::RedirectControl { .. }
             | Event::KeyPress { .. }
             | Event::KeyRelease { .. }
             | Event::MouseButton { .. }
@@ -67,6 +68,7 @@ pub(crate) fn is_idempotent_control_event(event: &Event) -> bool {
         event,
         Event::TakeControl { .. }
             | Event::ReleaseControl
+            | Event::RedirectControl { .. }
             | Event::TakeControlAck { .. }
             | Event::DisconnectNotify { .. }
             | Event::UnpairNotify { .. }
@@ -112,6 +114,7 @@ mod tests {
                 motion_session_id: 1,
                 return_motion: None,
                 caps_lock: None,
+                via_peer_id: None,
             }),
             EventClass::ReliableControl
         );

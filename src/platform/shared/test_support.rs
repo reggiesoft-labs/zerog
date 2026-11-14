@@ -1247,7 +1247,7 @@ impl TestPeerPair {
 }
 
 /// Three peers in a row, `a | b | c`: `b` sits between the other two and is
-/// connected to both, while `a` and `c` are not connected to each other.
+/// connected to both.
 pub struct TestPeerRow {
     pub a: TestPeer,
     pub b: TestPeer,
@@ -1255,7 +1255,42 @@ pub struct TestPeerRow {
 }
 
 impl TestPeerRow {
+    /// Row whose end peers are not connected to each other.
     pub fn new() -> Result<Self> {
+        Self::build(false)
+    }
+
+    /// Row whose end peers are also connected, with every peer holding the
+    /// same `a | b | c` layout rebased to itself, so `a` and `c` know of each
+    /// other without touching.
+    pub fn fully_connected() -> Result<Self> {
+        let row = Self::build(true)?;
+        let placement = |peer: &TestPeer, x: i32| crate::events::LayoutPlacement {
+            peer_id: peer.peer_id.clone(),
+            peer_label: peer.peer_name.clone(),
+            x,
+            y: 0,
+        };
+        let layout = |placements| crate::core::api::ConfigSnapshot {
+            placements,
+            ..Default::default()
+        };
+        row.a.reconcile_layout(&layout(vec![
+            placement(&row.b, ROW_STEP),
+            placement(&row.c, ROW_STEP * 2),
+        ]))?;
+        row.b.reconcile_layout(&layout(vec![
+            placement(&row.a, -ROW_STEP),
+            placement(&row.c, ROW_STEP),
+        ]))?;
+        row.c.reconcile_layout(&layout(vec![
+            placement(&row.b, -ROW_STEP),
+            placement(&row.a, -ROW_STEP * 2),
+        ]))?;
+        Ok(row)
+    }
+
+    fn build(connect_ends: bool) -> Result<Self> {
         ensure_crypto_provider();
         let row_nonce = TEST_PEER_PAIR_COUNTER.fetch_add(1, Ordering::Relaxed);
         let source_marker = 1_000 + row_nonce * 2;
@@ -1284,9 +1319,16 @@ impl TestPeerRow {
         b.add_peer(a.peer_ref(), a.addr()?, PeerEdge::Left)?;
         b.add_peer(c.peer_ref(), c.addr()?, PeerEdge::Right)?;
         c.add_peer(b.peer_ref(), b.addr()?, PeerEdge::Left)?;
+        if connect_ends {
+            a.add_peer(c.peer_ref(), c.addr()?, PeerEdge::Right)?;
+            c.add_peer(a.peer_ref(), a.addr()?, PeerEdge::Left)?;
+        }
         thread::sleep(Duration::from_millis(50));
         a.connect_to(b.addr()?)?;
         c.connect_to(b.addr()?)?;
+        if connect_ends {
+            a.connect_to(c.addr()?)?;
+        }
 
         let row = Self { a, b, c };
         wait_until(
@@ -1298,6 +1340,9 @@ impl TestPeerRow {
                     && is_connected_to(&row.b, &row.a.peer_id)
                     && is_connected_to(&row.b, &row.c.peer_id)
                     && is_connected_to(&row.c, &row.b.peer_id)
+                    && (!connect_ends
+                        || is_connected_to(&row.a, &row.c.peer_id)
+                            && is_connected_to(&row.c, &row.a.peer_id))
             },
             || {
                 format!(
@@ -1314,6 +1359,11 @@ impl TestPeerRow {
         Ok(row)
     }
 }
+
+/// Layout distance between neighbours in [`TestPeerRow::fully_connected`]:
+/// touching for any node size the test peers report, and two steps is far
+/// beyond any contact gap.
+const ROW_STEP: i32 = 175;
 
 fn is_connected_to(peer: &TestPeer, expected_peer_id: &str) -> bool {
     peer.runtime_state().iter().any(|state| {

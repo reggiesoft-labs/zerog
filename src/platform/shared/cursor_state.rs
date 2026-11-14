@@ -59,6 +59,12 @@ impl HandoffRequest {
     }
 
     pub(crate) fn into_wire_event(self) -> Event {
+        self.into_wire_event_via(None)
+    }
+
+    /// Wire form of a handoff that crosses `via_peer_id`'s edge rather than
+    /// the sender's; see `Event::TakeControl::via_peer_id`.
+    pub(crate) fn into_wire_event_via(self, via_peer_id: Option<String>) -> Event {
         Event::TakeControl {
             edge: self.edge,
             initial_x: 0,
@@ -67,6 +73,7 @@ impl HandoffRequest {
             motion_session_id: self.motion_session_id,
             return_motion: self.return_motion,
             caps_lock: self.caps_lock,
+            via_peer_id,
         }
     }
 }
@@ -101,6 +108,28 @@ pub(crate) enum HandoffPhase {
         peer: SocketAddr,
         motion_session_id: u64,
     },
+    /// Driving `peer_id` while a handoff on to `context.peer_id` (a machine
+    /// beyond it) awaits its acknowledgement. Input keeps flowing to
+    /// `peer_id` until the new peer accepts.
+    Redirecting {
+        peer_id: String,
+        peer: SocketAddr,
+        motion_session_id: u64,
+        context: HandoffContext,
+    },
+}
+
+/// Outcome of an acknowledgement for a redirected handoff.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub(crate) enum RedirectAck {
+    /// The new peer took the cursor; the previous one must be released.
+    Accepted {
+        context: HandoffContext,
+        previous_peer_id: String,
+        previous_peer: SocketAddr,
+    },
+    /// The new peer refused; driving continues on the previous peer.
+    Rejected { context: HandoffContext },
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -115,6 +144,19 @@ struct HandoffState {
     phase: HandoffPhase,
     handoff_source_position: Option<(i32, i32)>,
     last_edge_position: Option<(i32, i32)>,
+    /// Redirect left before its acknowledgement arrived. If that peer accepts
+    /// late it would own a cursor nobody drives, so it gets released.
+    abandoned_redirect: Option<HandoffContext>,
+}
+
+impl HandoffState {
+    /// Replaces the phase, remembering an unresolved redirect it drops.
+    fn set_phase(&mut self, phase: HandoffPhase) {
+        if let HandoffPhase::Redirecting { context, .. } = std::mem::replace(&mut self.phase, phase)
+        {
+            self.abandoned_redirect = Some(context);
+        }
+    }
 }
 
 pub(crate) struct CursorState {
@@ -122,6 +164,7 @@ pub(crate) struct CursorState {
     capture_policy: Arc<AtomicU8>,
     pressed_buttons: AtomicU8,
     last_transition_us: AtomicU64,
+    last_redirect_request_us: AtomicU64,
     handoff: Mutex<HandoffState>,
 }
 
@@ -136,6 +179,7 @@ impl CursorState {
             capture_policy,
             pressed_buttons: AtomicU8::new(0),
             last_transition_us: AtomicU64::new(0),
+            last_redirect_request_us: AtomicU64::new(0),
             handoff: Mutex::new(HandoffState::default()),
         }
     }
@@ -178,6 +222,7 @@ impl CursorState {
             HandoffPhase::AwaitingAck { .. } => "AwaitingAck",
             HandoffPhase::RemoteSession { .. } => "RemoteSession",
             HandoffPhase::ReceivingSession { .. } => "ReceivingSession",
+            HandoffPhase::Redirecting { .. } => "Redirecting",
         }
     }
 
@@ -196,9 +241,174 @@ impl CursorState {
                 peer_id: session_peer_id,
                 peer,
                 ..
+            }
+            | HandoffPhase::Redirecting {
+                peer_id: session_peer_id,
+                peer,
+                ..
             } => *peer == addr || peer_id == Some(session_peer_id.as_str()),
             HandoffPhase::Idle => false,
         }
+    }
+
+    /// Peer driving this machine's cursor, with the motion session it opened.
+    pub(crate) fn receiving_session(&self) -> Option<(String, SocketAddr, u64)> {
+        match &self.handoff.lock().expect("handoff lock poisoned").phase {
+            HandoffPhase::ReceivingSession {
+                peer_id,
+                peer,
+                motion_session_id,
+            } => Some((peer_id.clone(), *peer, *motion_session_id)),
+            _ => None,
+        }
+    }
+
+    /// Peer this machine drives, with the motion session it opened there.
+    /// None while a redirect is pending.
+    pub(crate) fn remote_session(&self) -> Option<(String, SocketAddr, u64)> {
+        match &self.handoff.lock().expect("handoff lock poisoned").phase {
+            HandoffPhase::RemoteSession {
+                peer_id,
+                peer,
+                motion_session_id,
+            } => Some((peer_id.clone(), *peer, *motion_session_id)),
+            _ => None,
+        }
+    }
+
+    /// Rate-limits redirect requests sent to the driving peer: true at most
+    /// once per `min_interval_us`.
+    pub(crate) fn try_mark_redirect_request(&self, now_us: u64, min_interval_us: u64) -> bool {
+        let last = self.last_redirect_request_us.load(Ordering::Relaxed);
+        if last != 0 && now_us.saturating_sub(last) < min_interval_us {
+            return false;
+        }
+        self.last_redirect_request_us
+            .compare_exchange(last, now_us.max(1), Ordering::Relaxed, Ordering::Relaxed)
+            .is_ok()
+    }
+
+    /// Starts handing the driven cursor on to the peer in `context`, keeping
+    /// the current remote session live until that peer answers. Only valid
+    /// while driving another peer.
+    pub(crate) fn begin_redirect(&self, context: HandoffContext) -> bool {
+        if !self.mode().is_remote_control() {
+            return false;
+        }
+        let mut guard = self.handoff.lock().expect("handoff lock poisoned");
+        let HandoffPhase::RemoteSession {
+            peer_id,
+            peer,
+            motion_session_id,
+        } = &guard.phase
+        else {
+            return false;
+        };
+        if *peer_id == context.peer_id || *peer == context.addr {
+            return false;
+        }
+        guard.phase = HandoffPhase::Redirecting {
+            peer_id: peer_id.clone(),
+            peer: *peer,
+            motion_session_id: *motion_session_id,
+            context,
+        };
+        true
+    }
+
+    /// Resolves an acknowledgement for a pending redirect. None when the ack
+    /// does not belong to one.
+    pub(crate) fn resolve_redirect(
+        &self,
+        peer_id: Option<&str>,
+        addr: SocketAddr,
+        request_seq: u32,
+        accepted: bool,
+    ) -> Option<RedirectAck> {
+        let mut guard = self.handoff.lock().expect("handoff lock poisoned");
+        let HandoffPhase::Redirecting { context, .. } = &guard.phase else {
+            return None;
+        };
+        let matches = context.request_seq == request_seq
+            && (context.addr == addr || peer_id == Some(context.peer_id.as_str()));
+        if !matches {
+            return None;
+        }
+        let HandoffPhase::Redirecting {
+            peer_id: previous_peer_id,
+            peer: previous_peer,
+            motion_session_id: previous_motion_session_id,
+            context,
+        } = std::mem::replace(&mut guard.phase, HandoffPhase::Idle)
+        else {
+            unreachable!();
+        };
+        if accepted {
+            guard.phase = HandoffPhase::RemoteSession {
+                peer_id: context.peer_id.clone(),
+                peer: context.addr,
+                motion_session_id: context.motion_session_id,
+            };
+            Some(RedirectAck::Accepted {
+                context,
+                previous_peer_id,
+                previous_peer,
+            })
+        } else {
+            guard.phase = HandoffPhase::RemoteSession {
+                peer_id: previous_peer_id,
+                peer: previous_peer,
+                motion_session_id: previous_motion_session_id,
+            };
+            Some(RedirectAck::Rejected { context })
+        }
+    }
+
+    /// Gives up on a redirect nobody answered within `timeout_us`, resuming
+    /// the previous remote session. Returns the abandoned handoff.
+    pub(crate) fn expire_redirect(&self, now_us: u64, timeout_us: u64) -> Option<HandoffContext> {
+        let mut guard = self.handoff.lock().expect("handoff lock poisoned");
+        let HandoffPhase::Redirecting { context, .. } = &guard.phase else {
+            return None;
+        };
+        if now_us.saturating_sub(context.started_us) < timeout_us {
+            return None;
+        }
+        let HandoffPhase::Redirecting {
+            peer_id,
+            peer,
+            motion_session_id,
+            context,
+        } = std::mem::replace(&mut guard.phase, HandoffPhase::Idle)
+        else {
+            unreachable!();
+        };
+        guard.phase = HandoffPhase::RemoteSession {
+            peer_id,
+            peer,
+            motion_session_id,
+        };
+        guard.abandoned_redirect = Some(context.clone());
+        Some(context)
+    }
+
+    /// Whether an accepted ack answers a redirect this machine already gave
+    /// up on; consumes the record so the peer is released once.
+    pub(crate) fn take_abandoned_redirect(
+        &self,
+        peer_id: Option<&str>,
+        addr: SocketAddr,
+        request_seq: u32,
+    ) -> bool {
+        let mut guard = self.handoff.lock().expect("handoff lock poisoned");
+        let matches = guard.abandoned_redirect.as_ref().is_some_and(|context| {
+            context.request_seq == request_seq
+                && (context.addr == addr || peer_id == Some(context.peer_id.as_str()))
+        });
+        if matches {
+            guard.abandoned_redirect = None;
+        }
+        matches
     }
 
     pub(crate) fn can_begin_outbound(&self) -> bool {
@@ -265,7 +475,7 @@ impl CursorState {
             _ => None,
         };
         let recovery = guard.handoff_source_position.or(guard.last_edge_position);
-        guard.phase = HandoffPhase::Idle;
+        guard.set_phase(HandoffPhase::Idle);
         guard.handoff_source_position = None;
         (pending, recovery)
     }
@@ -285,7 +495,7 @@ impl CursorState {
             _ => None,
         };
         let recovery = guard.handoff_source_position.or(guard.last_edge_position);
-        guard.phase = HandoffPhase::Idle;
+        guard.set_phase(HandoffPhase::Idle);
         guard.handoff_source_position = None;
         (pending, recovery)
     }
@@ -393,6 +603,11 @@ impl CursorState {
                 peer_id: current_peer_id,
                 peer: current_peer,
                 ..
+            }
+            | HandoffPhase::Redirecting {
+                peer_id: current_peer_id,
+                peer: current_peer,
+                ..
             } => current_peer_id != peer_id && *current_peer != peer,
             HandoffPhase::Idle | HandoffPhase::ReceivingSession { .. } => false,
         };
@@ -400,17 +615,17 @@ impl CursorState {
             return false;
         }
 
-        guard.phase = HandoffPhase::ReceivingSession {
+        guard.set_phase(HandoffPhase::ReceivingSession {
             peer_id: peer_id.to_string(),
             peer,
             motion_session_id,
-        };
+        });
         true
     }
 
     pub(crate) fn recover(&self) {
         let mut guard = self.handoff.lock().expect("handoff lock poisoned");
-        guard.phase = HandoffPhase::Idle;
+        guard.set_phase(HandoffPhase::Idle);
         guard.handoff_source_position = None;
         self.clear_pressed_buttons();
     }
@@ -915,6 +1130,161 @@ mod tests {
         // The driven peer can still hand the cursor back.
         assert!(cursor.begin_inbound("peer-b", peer(), 11));
         assert_eq!(cursor.phase_name(), "ReceivingSession");
+    }
+
+    fn third_peer() -> SocketAddr {
+        "127.0.0.1:5002".parse().unwrap()
+    }
+
+    fn redirect_to_third_peer(request_seq: u32, started_us: u64) -> HandoffContext {
+        HandoffContext {
+            peer_id: "peer-c".to_string(),
+            addr: third_peer(),
+            request_seq,
+            motion_session_id: 20,
+            edge: PeerEdge::Right,
+            receiver_position_bp: 5_000,
+            source_position: (1_919, 500),
+            started_us,
+        }
+    }
+
+    /// Driving peer-b in RemoteControl with a redirect to peer-c pending.
+    fn redirecting_cursor() -> CursorState {
+        let cursor = CursorState::new(Arc::new(AtomicU8::new(TransferMode::LocalControl as u8)));
+        assert!(cursor.begin_outbound(sample_handoff(3, 8)));
+        cursor
+            .transition_to_remote_control(&MockInjection::default())
+            .unwrap();
+        assert_eq!(
+            cursor.resolve_outbound(Some("peer-b"), peer(), 3, true).0,
+            HandoffAck::Accepted
+        );
+        assert!(cursor.begin_redirect(redirect_to_third_peer(7, 1_000)));
+        assert_eq!(cursor.phase_name(), "Redirecting");
+        cursor
+    }
+
+    #[test]
+    fn redirect_requires_driving_a_remote_session() {
+        let cursor = CursorState::new(Arc::new(AtomicU8::new(TransferMode::LocalControl as u8)));
+        assert!(!cursor.begin_redirect(redirect_to_third_peer(7, 1_000)));
+
+        assert!(cursor.begin_inbound("peer-b", peer(), 9));
+        assert!(!cursor.begin_redirect(redirect_to_third_peer(7, 1_000)));
+        assert_eq!(cursor.phase_name(), "ReceivingSession");
+    }
+
+    #[test]
+    fn accepted_redirect_moves_the_session_and_names_the_peer_to_release() {
+        let cursor = redirecting_cursor();
+        // Input keeps going to the current peer until the new one answers.
+        assert!(cursor.is_session_peer(Some("peer-b"), peer()));
+        assert_eq!(
+            cursor
+                .resolve_outbound(Some("peer-c"), third_peer(), 7, true)
+                .0,
+            HandoffAck::Stale
+        );
+        assert_eq!(cursor.phase_name(), "Redirecting");
+
+        let outcome = cursor.resolve_redirect(Some("peer-c"), third_peer(), 7, true);
+
+        assert!(matches!(
+            outcome,
+            Some(RedirectAck::Accepted { ref previous_peer_id, previous_peer, .. })
+                if previous_peer_id == "peer-b" && previous_peer == peer()
+        ));
+        assert_eq!(
+            cursor.remote_session(),
+            Some(("peer-c".to_string(), third_peer(), 20))
+        );
+        assert_eq!(cursor.mode(), TransferMode::RemoteControl);
+    }
+
+    #[test]
+    fn rejected_redirect_resumes_the_previous_session() {
+        let cursor = redirecting_cursor();
+        assert_eq!(
+            cursor.resolve_redirect(Some("peer-c"), third_peer(), 6, false),
+            None
+        );
+
+        let outcome = cursor.resolve_redirect(Some("peer-c"), third_peer(), 7, false);
+
+        assert!(matches!(outcome, Some(RedirectAck::Rejected { .. })));
+        assert_eq!(
+            cursor.remote_session(),
+            Some(("peer-b".to_string(), peer(), 8))
+        );
+        assert_eq!(cursor.mode(), TransferMode::RemoteControl);
+    }
+
+    #[test]
+    fn expired_redirect_resumes_the_session_and_releases_a_late_accept() {
+        let cursor = redirecting_cursor();
+        assert_eq!(cursor.expire_redirect(1_000 + 999, 1_000), None);
+
+        let expired = cursor.expire_redirect(2_000, 1_000);
+
+        assert_eq!(expired.map(|context| context.request_seq), Some(7));
+        assert_eq!(
+            cursor.remote_session(),
+            Some(("peer-b".to_string(), peer(), 8))
+        );
+        assert_eq!(
+            cursor.resolve_redirect(Some("peer-c"), third_peer(), 7, true),
+            None
+        );
+        assert!(cursor.take_abandoned_redirect(Some("peer-c"), third_peer(), 7));
+        assert!(!cursor.take_abandoned_redirect(Some("peer-c"), third_peer(), 7));
+    }
+
+    #[test]
+    fn redirect_timer_is_inert_after_the_cursor_comes_home() {
+        let cursor = redirecting_cursor();
+        let injection = MockInjection::default();
+
+        // The driven peer hands the cursor back before the redirect resolves.
+        assert!(cursor.begin_inbound("peer-b", peer(), 9));
+        cursor
+            .transition_to_local_control(&injection, Some((0, 500)))
+            .unwrap();
+        assert!(cursor.begin_inbound("peer-b", peer(), 9));
+
+        assert_eq!(cursor.expire_redirect(u64::MAX, 1_000), None);
+        assert_eq!(cursor.mode(), TransferMode::LocalControl);
+        assert_eq!(cursor.phase_name(), "ReceivingSession");
+        assert!(cursor.take_abandoned_redirect(Some("peer-c"), third_peer(), 7));
+    }
+
+    #[test]
+    fn redirect_timer_is_inert_after_recovery() {
+        let cursor = redirecting_cursor();
+        cursor.recover();
+
+        assert_eq!(cursor.expire_redirect(u64::MAX, 1_000), None);
+        assert_eq!(cursor.phase_name(), "Idle");
+        assert!(cursor.take_abandoned_redirect(Some("peer-c"), third_peer(), 7));
+    }
+
+    #[test]
+    fn other_peers_cannot_take_the_cursor_during_a_redirect() {
+        let cursor = redirecting_cursor();
+        let other: SocketAddr = "127.0.0.1:5003".parse().unwrap();
+
+        assert!(!cursor.begin_inbound("peer-d", other, 30));
+        assert!(!cursor.begin_inbound("peer-c", third_peer(), 31));
+        assert_eq!(cursor.phase_name(), "Redirecting");
+    }
+
+    #[test]
+    fn redirect_requests_are_rate_limited() {
+        let cursor = CursorState::new(Arc::new(AtomicU8::new(TransferMode::LocalControl as u8)));
+
+        assert!(cursor.try_mark_redirect_request(1_000, 500));
+        assert!(!cursor.try_mark_redirect_request(1_400, 500));
+        assert!(cursor.try_mark_redirect_request(1_500, 500));
     }
 
     #[test]

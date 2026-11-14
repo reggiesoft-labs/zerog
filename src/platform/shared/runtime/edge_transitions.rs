@@ -1,7 +1,7 @@
 //! Mouse edge transition handlers for local movement events.
 
 use crate::core::layout::map_position_bp;
-use crate::events::MotionCheckpoint;
+use crate::events::{Event, MotionCheckpoint};
 use crate::platform::PeerEdge;
 use tracing::{debug, info, trace, warn};
 
@@ -70,17 +70,33 @@ fn handle_owner_mouse_move(
     if ctx.cursor.has_pressed_buttons() {
         return;
     }
-    let remote_driven = return_motion.is_some();
-    let Some(target) = confirm_outbound_target(
-        ctx,
-        topology,
-        source_position,
-        (dx, dy),
-        sample_us,
-        remote_driven,
-    ) else {
+    let Some(target) = confirm_outbound_target(ctx, topology, source_position, (dx, dy), sample_us)
+    else {
         return;
     };
+
+    // Motion from the peer driving this cursor may hand it straight back to
+    // that peer. Any other neighbour is reached by asking the driver to hand
+    // the cursor on, since the driver's input would otherwise keep arriving
+    // here after this machine stopped owning the cursor.
+    if return_motion.is_some() {
+        let Some((driver_peer_id, driver_addr, motion_session_id)) = ctx.cursor.receiving_session()
+        else {
+            return;
+        };
+        if target.contact.peer_id != driver_peer_id && target.contact.addr != driver_addr {
+            request_redirect(
+                ctx,
+                topology,
+                &target,
+                source_position,
+                sample_us,
+                driver_addr,
+                motion_session_id,
+            );
+            return;
+        }
+    }
 
     let addr = target.contact.addr;
     if !ctx.cursor.can_begin_outbound() {
@@ -107,10 +123,8 @@ fn confirm_outbound_target(
     position: (i32, i32),
     movement: (i32, i32),
     sample_us: u64,
-    remote_driven: bool,
 ) -> Option<OutboundTarget> {
-    let (detected, outward_push_px) =
-        detect_outbound_target(ctx, topology, position, movement, remote_driven);
+    let (detected, outward_push_px) = detect_outbound_target(ctx, topology, position, movement);
     let mut detector = ctx
         .edge_detector
         .lock()
@@ -206,6 +220,56 @@ fn begin_handoff(
     Some(handoff)
 }
 
+/// Minimum spacing between redirect requests while the driven cursor keeps
+/// pushing against an edge the driver has not acted on yet.
+const REDIRECT_RETRY_US: u64 = 500_000;
+
+fn request_redirect(
+    ctx: &ThreadContext,
+    topology: &DisplayTopology,
+    target: &OutboundTarget,
+    source_position: (i32, i32),
+    sample_us: u64,
+    driver_addr: std::net::SocketAddr,
+    motion_session_id: u64,
+) {
+    if !ctx
+        .cursor
+        .try_mark_redirect_request(sample_us, REDIRECT_RETRY_US)
+    {
+        return;
+    }
+    let contact = &target.contact;
+    let edge = contact.local.edge;
+    let edge_bp = edge_position_bp_from_bounds(
+        edge,
+        topology.virtual_bounds,
+        source_position.0,
+        source_position.1,
+    );
+    let receiver_position_bp = map_position_bp(edge_bp, contact.local, contact.remote);
+    let request = Event::RedirectControl {
+        target_peer_id: contact.peer_id.clone(),
+        edge,
+        receiver_position_bp,
+        motion_session_id,
+    };
+    if let Err(error) = ctx.network.send_packet_to(driver_addr, vec![request]) {
+        warn!(error = %error, "failed to send RedirectControl");
+        return;
+    }
+    info!(
+        domain = "runtime.transition",
+        transition_key = "redirect_requested",
+        handoff_id = motion_session_id,
+        target_peer_id = %contact.peer_id,
+        driver = %driver_addr,
+        edge = ?edge,
+        receiver_position_bp,
+        "asked the driving peer to hand the cursor on"
+    );
+}
+
 fn enter_remote_control(ctx: &ThreadContext, handoff: &HandoffContext) {
     let transition_result = ctx.cursor.transition_to_remote_control(&*ctx.injection);
     if transition_result.is_ok() {
@@ -268,7 +332,6 @@ fn detect_outbound_target(
     topology: &DisplayTopology,
     (local_x, local_y): (i32, i32),
     (dx, dy): (i32, i32),
-    remote_driven: bool,
 ) -> (Option<OutboundTarget>, u32) {
     let (x, y) = (local_x as f64, local_y as f64);
     let mut edges = [
@@ -296,22 +359,6 @@ fn detect_outbound_target(
         let Some(contact) = ctx.layout.contact_for_position(edge, position_bp) else {
             continue;
         };
-        // Motion that arrives from the peer driving this cursor may only hand
-        // the cursor back to that peer. Handing it on to a third machine would
-        // strand the driver: its input keeps arriving here, where it is
-        // dropped once this machine stops owning the cursor.
-        if remote_driven
-            && !ctx
-                .cursor
-                .is_session_peer(Some(&contact.peer_id), contact.addr)
-        {
-            trace!(
-                peer_id = %contact.peer_id,
-                edge = ?edge,
-                "blocked onward handoff while driven by a remote peer"
-            );
-            continue;
-        }
         if ctx.network.is_peer_timed_out(contact.addr) {
             continue;
         }

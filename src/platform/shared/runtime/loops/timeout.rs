@@ -41,6 +41,19 @@ pub(crate) fn run_timeout_check(
         );
     }
 
+    // A redirect only ever moves the cursor between remote peers, so giving up
+    // on one resumes driving the current peer instead of unlocking locally.
+    if let Some(expired) = ctx.cursor.expire_redirect(now_us, HANDOFF_TIMEOUT_US) {
+        warn!(
+            domain = "runtime.transition",
+            transition_key = "redirect_timeout",
+            handoff_id = expired.motion_session_id,
+            peer_id = %expired.peer_id,
+            peer = %expired.addr,
+            "redirect timed out waiting for ack; staying on the current peer"
+        );
+    }
+
     if let Some(pending) = ctx.cursor.pending_handoff() {
         if now_us.saturating_sub(pending.started_us) >= HANDOFF_TIMEOUT_US {
             warn!(
@@ -146,7 +159,11 @@ pub(crate) fn recover_from_peer_loss(
     );
 
     ctx.network.remove_conn_addr(addr);
-    if !was_active && !had_session && !was_remote {
+    // While driving one peer, losing an unrelated one (a third machine) must
+    // not pull the cursor back; only a remote mode without a target is
+    // recovered on any loss.
+    let remote_without_target = was_remote && active_target.is_none();
+    if !was_active && !had_session && !remote_without_target {
         return;
     }
 

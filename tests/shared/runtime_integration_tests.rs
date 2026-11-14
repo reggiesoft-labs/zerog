@@ -659,6 +659,7 @@ fn packets_from_unknown_peers_without_connection_events_are_ignored() -> Result<
                 motion_session_id: 1,
                 return_motion: None,
                 caps_lock: None,
+                via_peer_id: None,
             }],
         };
 
@@ -690,6 +691,7 @@ fn packets_from_local_sender_id_are_ignored() -> Result<()> {
                 motion_session_id: 1,
                 return_motion: None,
                 caps_lock: None,
+                via_peer_id: None,
             }],
         };
 
@@ -903,7 +905,7 @@ fn owner_local_input_near_entry_does_not_bounce_back() -> Result<()> {
 
 #[test]
 #[serial]
-fn remote_driven_cursor_does_not_hand_off_to_a_third_peer() -> Result<()> {
+fn remote_driven_cursor_stays_when_the_driver_cannot_reach_the_far_peer() -> Result<()> {
     with_tokio_runtime(|| {
         let row = TestPeerRow::new()?;
         let along_axis = 500;
@@ -921,8 +923,8 @@ fn remote_driven_cursor_does_not_hand_off_to_a_third_peer() -> Result<()> {
             })?;
         std::thread::sleep(TRANSITION_COOLDOWN_WAIT);
 
-        // A's mouse pushes B's cursor all the way into B's right edge, where C
-        // sits. Handing on to C would strand A, so B must keep the cursor.
+        // A's mouse pushes B's cursor into B's right edge, where C sits. A has
+        // no connection to C, so the redirect goes nowhere and B keeps it.
         let bounds = row.b.display_bounds();
         let right_x = bounds.x + bounds.width as i32 - 1;
         for _ in 0..30 {
@@ -959,6 +961,132 @@ fn remote_driven_cursor_does_not_hand_off_to_a_third_peer() -> Result<()> {
         }
         row.a
             .wait_for_mode(TransferMode::LocalControl, DEFAULT_WAIT_TIMEOUT)?;
+        Ok(())
+    })
+}
+
+fn push_from(
+    peer: &zerog::platform::shared::test_support::TestPeer,
+    dx: i32,
+    count: usize,
+) -> Result<()> {
+    for _ in 0..count {
+        peer.emit(mouse_move(0, 0, dx, 0))?;
+        std::thread::sleep(Duration::from_millis(5));
+    }
+    Ok(())
+}
+
+fn received_cursor(peer: &zerog::platform::shared::test_support::TestPeer) -> bool {
+    peer.take_injected()
+        .iter()
+        .any(|call| matches!(call, InjectedCall::CursorWarped { .. }))
+}
+
+#[test]
+#[serial]
+fn driven_cursor_travels_through_the_middle_peer_and_back() -> Result<()> {
+    with_tokio_runtime(|| {
+        let row = TestPeerRow::fully_connected()?;
+        let along_axis = 500;
+
+        drive_to_edge(&row.a, PeerEdge::Right, along_axis)?;
+        row.a
+            .wait_for_mode(TransferMode::RemoteControl, DEFAULT_WAIT_TIMEOUT)?;
+        row.b
+            .wait_for_calls("handoff into middle peer", DEFAULT_WAIT_TIMEOUT, |calls| {
+                calls
+                    .iter()
+                    .any(|call| matches!(call, InjectedCall::CursorWarped { .. }))
+            })?;
+        row.b.clear_injected();
+        std::thread::sleep(TRANSITION_COOLDOWN_WAIT);
+
+        // A's mouse crosses B and lands on C, entering at C's left edge.
+        push_from(&row.a, 120, 30)?;
+        let c_entry =
+            expected_receiver_entry(row.c.display_bounds(), PeerEdge::Right, along_axis, None);
+        row.c.wait_for_calls(
+            "cursor handed on to far peer",
+            DEFAULT_WAIT_TIMEOUT,
+            |calls| {
+                calls.iter().any(
+                    |call| matches!(call, InjectedCall::CursorWarped { x, .. } if *x == c_entry.0),
+                )
+            },
+        )?;
+        assert_eq!(row.a.transfer_mode(), TransferMode::RemoteControl);
+        assert_eq!(row.c.transfer_mode(), TransferMode::LocalControl);
+        // B is released once C takes over, dropping any keys A held there.
+        row.b
+            .wait_for_calls("middle peer released", DEFAULT_WAIT_TIMEOUT, |calls| {
+                calls.contains(&InjectedCall::AllKeysReleased)
+            })?;
+
+        // A's motion now drives C, and no longer B.
+        std::thread::sleep(TRANSITION_COOLDOWN_WAIT);
+        row.b.clear_injected();
+        let c_start = row.c.cursor_pos();
+        push_from(&row.a, 30, 5)?;
+        wait_until(
+            "far peer follows the driver",
+            DEFAULT_WAIT_TIMEOUT,
+            DEFAULT_WAIT_POLL,
+            || row.c.cursor_pos().0 > c_start.0,
+            || row.c.debug_snapshot(),
+        )?;
+        assert!(
+            !row.b
+                .take_injected()
+                .iter()
+                .any(|call| matches!(call, InjectedCall::MouseMove { .. })),
+            "released middle peer must not follow the driver: {}",
+            row.b.debug_snapshot()
+        );
+
+        // Back across C's left edge to B, then across B's left edge home.
+        row.b.clear_injected();
+        push_from(&row.a, -120, 30)?;
+        row.b.wait_for_calls(
+            "cursor handed back to middle peer",
+            DEFAULT_WAIT_TIMEOUT,
+            |calls| {
+                calls
+                    .iter()
+                    .any(|call| matches!(call, InjectedCall::CursorWarped { .. }))
+            },
+        )?;
+        row.c
+            .wait_for_calls("far peer released", DEFAULT_WAIT_TIMEOUT, |calls| {
+                calls.contains(&InjectedCall::AllKeysReleased)
+            })?;
+        std::thread::sleep(TRANSITION_COOLDOWN_WAIT);
+        push_from(&row.a, -120, 30)?;
+        row.a
+            .wait_for_mode(TransferMode::LocalControl, DEFAULT_WAIT_TIMEOUT)?;
+        Ok(())
+    })
+}
+
+#[test]
+#[serial]
+fn driver_keeps_its_session_when_an_unrelated_peer_drops() -> Result<()> {
+    with_tokio_runtime(|| {
+        let row = TestPeerRow::new()?;
+
+        // B drives A; C, B's other neighbour, then goes away.
+        drive_to_edge(&row.b, PeerEdge::Left, 500)?;
+        row.b
+            .wait_for_mode(TransferMode::RemoteControl, DEFAULT_WAIT_TIMEOUT)?;
+        row.a
+            .wait_for_mode(TransferMode::LocalControl, DEFAULT_WAIT_TIMEOUT)?;
+        row.c.stop()?;
+
+        assert_mode_stays(
+            &row.b,
+            TransferMode::RemoteControl,
+            Duration::from_millis(600),
+        )?;
         Ok(())
     })
 }
