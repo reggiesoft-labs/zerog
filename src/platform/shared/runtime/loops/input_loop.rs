@@ -4,6 +4,7 @@
 //! a single async loop using tokio::select! for simpler coordination.
 
 use std::collections::HashMap;
+use std::net::SocketAddr;
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
@@ -25,6 +26,7 @@ use crate::core::api::PeerRefSnapshot;
 use crate::core::handshake::{HandshakePeer, HandshakeResponder};
 use crate::core::platform::{scale_wheel_for_target, translate_hid_for_target_platform, PlatformFamily};
 use crate::platform::shared::quic::PeerConnection;
+use crate::platform::shared::quic::write_control_stream;
 use crate::platform::shared::transition::TransitionState;
 use crate::platform::{CapturedInputEvent, TransferMode};
 
@@ -35,6 +37,7 @@ const KEEP_ALIVE_INTERVAL: Duration = Duration::from_secs(5);
 const MAX_LOCAL_EVENTS_PER_TURN: usize = 32;
 const MAX_INBOUND_MESSAGES_PER_TURN: usize = 32;
 const MAX_CONTROL_MESSAGES_PER_TICK: usize = 32;
+const LARGE_CONTROL_MESSAGE_BYTES: usize = 256 * 1024;
 const ESCAPE_TAP_WINDOW_US: u64 = 1_500_000;
 const ESCAPE_REPEAT_DEBOUNCE_US: u64 = 30_000;
 const ESCAPE_KEYCODE: u32 = 0x29;
@@ -747,24 +750,44 @@ async fn process_control_messages(ctx: &ThreadContext) {
 
 async fn send_control_message(message: QueuedControlMessage) {
     let addr = message.connection.addr();
+    let data = message.data;
     debug!(
         addr = %addr,
-        data_len = message.data.len(),
+        data_len = data.len(),
         "sending queued control message"
     );
-    if let Err(error) = message.connection.send_control(message.data).await {
-        let decision =
-            runtime_warning_limiter().evaluate("control_send_failed", WARN_RATE_LIMIT_POLICY);
-        emit_rate_limit_rollup("runtime.connection", "control_send_failed", decision);
-        if decision.emit_now {
-            warn!(
-                domain = "runtime.connection",
-                warning_key = "control_send_failed",
-                error = %error,
-                addr = %addr,
-                "failed to send control message"
-            );
+    if data.len() < LARGE_CONTROL_MESSAGE_BYTES {
+        if let Err(error) = message.connection.send_control(data).await {
+            warn_control_send_failed(addr, &error);
         }
+        return;
+    }
+    let stream = match message.connection.open_control_stream(data.len()).await {
+        Ok(stream) => stream,
+        Err(error) => {
+            warn_control_send_failed(addr, &error);
+            return;
+        }
+    };
+    crate::platform::shared::tokio_runtime::global_runtime_handle().spawn(async move {
+        if let Err(error) = write_control_stream(stream, data).await {
+            warn_control_send_failed(addr, &error);
+        }
+    });
+}
+
+fn warn_control_send_failed(addr: SocketAddr, error: &anyhow::Error) {
+    let decision =
+        runtime_warning_limiter().evaluate("control_send_failed", WARN_RATE_LIMIT_POLICY);
+    emit_rate_limit_rollup("runtime.connection", "control_send_failed", decision);
+    if decision.emit_now {
+        warn!(
+            domain = "runtime.connection",
+            warning_key = "control_send_failed",
+            error = %error,
+            addr = %addr,
+            "failed to send control message"
+        );
     }
 }
 

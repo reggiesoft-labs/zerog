@@ -304,7 +304,7 @@ mod tests {
         };
         assert_eq!(content, local);
         assert_eq!(*content_hash, compute_hash(local));
-        sync.handle_received_ack(*sequence);
+        sync.handle_received_ack(*sequence, *content_hash, "peer");
 
         let remote = "Peer → Linux: résumé 世界\n";
         let remote_timestamp = timestamp + 1;
@@ -339,6 +339,11 @@ mod tests {
             clipboard.get_clipboard_text().unwrap().as_deref(),
             Some(remote)
         );
+        let events = std::mem::take(&mut *network.events.lock().unwrap());
+        assert!(matches!(
+            events.as_slice(),
+            [Event::ClipboardAck { sequence: 43, .. }]
+        ));
         clipboard
             .set_clipboard_text("local while disabled")
             .unwrap();

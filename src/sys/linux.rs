@@ -1,4 +1,4 @@
-use anyhow::{Result, anyhow};
+use anyhow::Result;
 use std::sync::Arc;
 use std::sync::atomic::AtomicU8;
 use tokio::sync::mpsc;
@@ -48,7 +48,7 @@ pub(crate) fn create_x11_engine_pair(
         on_capture_installed: Arc::new(|| {}),
         on_capture_uninstalling: Arc::new(|| {}),
         clipboard: X11ClipboardManager::new()
-            .map_err(|e| anyhow!("Failed to initialize clipboard: {}", e))
+            .inspect_err(|e| tracing::warn!("Clipboard sharing unavailable: {e}"))
             .ok()
             .map(|manager| manager as Arc<dyn crate::core::platform::traits::ClipboardManager>),
     };

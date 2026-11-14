@@ -297,7 +297,7 @@ mod tests {
 
         sync.fsm().set_awaiting_ack(42, 123);
 
-        sync.handle_received_ack(42);
+        sync.handle_received_ack(42, 123, "peer-b");
 
         assert!(matches!(sync.fsm().state(), SyncState::Syncing));
         assert!(!sync.fsm().has_pending_remote());
@@ -320,7 +320,7 @@ mod tests {
 
         sync.fsm().set_awaiting_ack(42, 123);
 
-        sync.handle_received_ack(999);
+        sync.handle_received_ack(999, 123, "peer-b");
 
         assert!(matches!(sync.fsm().state(), SyncState::AwaitingAck(42)));
     }
@@ -417,7 +417,11 @@ mod tests {
             .unwrap_or_else(|e| e.into_inner())
             .clone();
         assert_eq!(current, Some("local content".to_string()));
-        assert!(network.get_sent_events().is_empty());
+        assert!(matches!(
+            network.get_sent_events().as_slice(),
+            [Event::ClipboardAck { sequence: 1, .. }]
+        ));
+        network.clear_sent_events();
 
         sync.set_enabled(true);
         sync.handle_received_clipboard_text(

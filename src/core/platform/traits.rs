@@ -232,4 +232,9 @@ pub trait NetworkState: Send + Sync {
 
     /// Returns true if there are any connected peers.
     fn has_any_peer(&self) -> bool;
+
+    /// Returns how many distinct peers a broadcast is addressed to.
+    fn connected_peer_count(&self) -> usize {
+        usize::from(self.has_any_peer())
+    }
 }

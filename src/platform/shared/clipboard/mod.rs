@@ -9,6 +9,8 @@ use std::time::Duration;
 use crate::core::events::{ClipboardSequence, Event};
 use crate::core::platform::traits::{ClipboardManager, NetworkState};
 
+const MAX_CLIPBOARD_TEXT_BYTES: usize = 15 * 1024 * 1024;
+
 pub struct ClipboardSync {
     clipboard: Arc<dyn ClipboardManager>,
     network: Arc<dyn NetworkState>,
@@ -124,8 +126,23 @@ impl ClipboardSync {
             return;
         }
 
+        if content.len() > MAX_CLIPBOARD_TEXT_BYTES {
+            tracing::warn!(
+                content_len = content.len(),
+                max = MAX_CLIPBOARD_TEXT_BYTES,
+                "clipboard text too large to share"
+            );
+            self.fsm.update_hash(hash);
+            return;
+        }
+
         let sequence = self.sequence.next();
-        let timestamp = self.fsm.prepare_broadcast(sequence, hash, self.sequence.timestamp());
+        let timestamp = self.fsm.prepare_broadcast(
+            sequence,
+            hash,
+            self.sequence.timestamp(),
+            self.network.connected_peer_count(),
+        );
 
         let event = Event::ClipboardText {
             content,
@@ -165,8 +182,8 @@ impl ClipboardSync {
         self.fsm.notify_peer_disconnected();
     }
 
-    pub fn handle_received_ack(&self, sequence: u64) {
-        self.fsm.handle_received_ack(sequence);
+    pub fn handle_received_ack(&self, sequence: u64, hash: u64, from: &str) {
+        self.fsm.handle_received_ack(sequence, hash, from);
     }
 
     pub fn handle_received_clipboard_text(
@@ -178,6 +195,7 @@ impl ClipboardSync {
     ) {
         if !self.is_enabled() {
             tracing::debug!("ignoring remote clipboard: clipboard sharing is disabled");
+            self.send_ack(sequence, hash);
             return;
         }
 
@@ -208,14 +226,26 @@ impl ClipboardSync {
             return;
         }
 
+        if self.fsm.last_hash() == Some(hash) {
+            tracing::debug!(hash, "remote clipboard already applied");
+            self.fsm.update_timestamp(timestamp);
+            self.send_ack(sequence, hash);
+            return;
+        }
+
+        let previous_hash = self.fsm.last_hash();
         self.fsm.apply_remote_content(timestamp, hash);
 
         if let Err(e) = self.clipboard.set_clipboard_text(&content) {
             tracing::error!("Failed to set clipboard: {:?}", e);
-            self.fsm.clear_suppress();
+            self.fsm.undo_remote_apply(previous_hash);
             return;
         }
 
+        self.send_ack(sequence, hash);
+    }
+
+    fn send_ack(&self, sequence: u64, hash: u64) {
         let ack = Event::ClipboardAck {
             sequence,
             received_hash: hash,

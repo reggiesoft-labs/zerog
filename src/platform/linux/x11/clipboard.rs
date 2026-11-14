@@ -17,6 +17,11 @@ unsafe impl Sync for X11ClipboardManager {}
 
 impl X11ClipboardManager {
     pub fn new() -> Result<Arc<Self>, ClipboardError> {
+        if !Self::check_xclip_available() {
+            return Err(ClipboardError::PlatformError(
+                "xclip is not available in PATH".into(),
+            ));
+        }
         Ok(Arc::new(Self {
             operation_mutex: Mutex::new(()),
         }))
@@ -36,21 +41,43 @@ const SENSITIVE_X11_TARGETS: &[&str] = &[
     "application/x-keepassxc-selection",
 ];
 
-fn has_sensitive_targets() -> bool {
+const TEXT_X11_TARGETS: &[&str] = &[
+    "UTF8_STRING",
+    "text/plain;charset=utf-8",
+    "text/plain",
+    "STRING",
+];
+
+fn read_targets() -> Option<String> {
     let output = Command::new("xclip")
         .args(["-selection", "clipboard", "-o", "-t", "TARGETS"])
-        .output();
-    if let Ok(out) = output {
-        if out.status.success() {
-            let targets = String::from_utf8_lossy(&out.stdout);
-            for line in targets.lines() {
-                if SENSITIVE_X11_TARGETS.contains(&line.trim()) {
-                    return true;
-                }
-            }
-        }
+        .output()
+        .ok()?;
+    if !output.status.success() {
+        return None;
     }
-    false
+    Some(String::from_utf8_lossy(&output.stdout).into_owned())
+}
+
+fn text_target(targets: &str) -> Option<&'static str> {
+    let offered: Vec<&str> = targets.lines().map(str::trim).collect();
+    if offered
+        .iter()
+        .any(|target| SENSITIVE_X11_TARGETS.contains(target))
+    {
+        return None;
+    }
+    TEXT_X11_TARGETS
+        .iter()
+        .copied()
+        .find(|target| offered.contains(target))
+}
+
+fn decode_text(target: &str, bytes: Vec<u8>) -> String {
+    if target == "STRING" {
+        return bytes.into_iter().map(char::from).collect();
+    }
+    String::from_utf8_lossy(&bytes).into_owned()
 }
 
 impl ClipboardManager for X11ClipboardManager {
@@ -59,17 +86,20 @@ impl ClipboardManager for X11ClipboardManager {
             ClipboardError::PlatformError("Failed to acquire clipboard lock".into())
         })?;
 
-        if has_sensitive_targets() {
+        let Some(targets) = read_targets() else {
             return Ok(None);
-        }
+        };
+        let Some(target) = text_target(&targets) else {
+            return Ok(None);
+        };
 
         let output = Command::new("xclip")
-            .args(["-selection", "clipboard", "-o", "-t", "text/plain"])
+            .args(["-selection", "clipboard", "-o", "-t", target])
             .output()
             .map_err(|e| ClipboardError::PlatformError(format!("xclip failed: {}", e)))?;
 
         if output.status.success() {
-            let text = String::from_utf8_lossy(&output.stdout).to_string();
+            let text = decode_text(target, output.stdout);
             if text.is_empty() {
                 Ok(None)
             } else {
@@ -154,6 +184,32 @@ mod tests {
     use serial_test::serial;
 
     const ROUND_TRIP_TEXT: &str = "zerog-x11-clipboard-test";
+
+    #[test]
+    fn prefers_utf8_targets_over_plain_text() {
+        assert_eq!(
+            text_target("TARGETS\ntext/plain\nUTF8_STRING\n"),
+            Some("UTF8_STRING")
+        );
+        assert_eq!(
+            text_target("TARGETS\nSTRING\nTEXT\nCOMPOUND_TEXT\n"),
+            Some("STRING")
+        );
+        assert_eq!(text_target("TARGETS\nimage/png\n"), None);
+    }
+
+    #[test]
+    fn excludes_sensitive_targets() {
+        for sensitive in SENSITIVE_X11_TARGETS {
+            assert_eq!(text_target(&format!("UTF8_STRING\n{sensitive}\n")), None);
+        }
+    }
+
+    #[test]
+    fn decodes_latin1_string_target() {
+        assert_eq!(decode_text("STRING", vec![0x63, 0x61, 0x66, 0xE9]), "café");
+        assert_eq!(decode_text("UTF8_STRING", "café".as_bytes().to_vec()), "café");
+    }
 
     fn clipboard_available() -> bool {
         X11ClipboardManager::check_xclip_available() && live_test::x11_display_available()

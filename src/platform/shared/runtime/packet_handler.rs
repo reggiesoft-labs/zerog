@@ -197,10 +197,16 @@ fn handle_received_event(
         }
         Event::ClipboardAck {
             sequence,
-            received_hash: _,
+            received_hash,
         } => {
             if let Some(sync) = ctx.clipboard_sync.as_ref() {
-                sync.handle_received_ack(sequence);
+                let peer_id = conn.peer_id();
+                let from = if peer_id.is_empty() {
+                    conn.addr().to_string()
+                } else {
+                    peer_id
+                };
+                sync.handle_received_ack(sequence, received_hash, &from);
             }
         }
         Event::ClipboardSyncRequest { request_id } => {

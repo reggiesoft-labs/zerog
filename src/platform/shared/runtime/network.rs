@@ -787,6 +787,16 @@ impl NetworkStateTrait for NetworkState {
     fn has_any_peer(&self) -> bool {
         !self.peers.get_peer_runtime_state().is_empty()
     }
+
+    fn connected_peer_count(&self) -> usize {
+        let peer_ids: std::collections::HashSet<String> = self
+            .peers
+            .peer_addrs()
+            .into_iter()
+            .filter_map(|addr| self.peers.peer_id_for_addr(addr))
+            .collect();
+        peer_ids.len()
+    }
 }
 
 pub(crate) fn input_activity_state(mode: TransferMode, _now: u64, _last_input: u64) -> PeerState {

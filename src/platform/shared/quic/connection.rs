@@ -25,6 +25,34 @@ fn validate_control_message_len(len: usize) -> anyhow::Result<()> {
 
 const CONTROL_SEND_TIMEOUT: Duration = Duration::from_millis(250);
 const CONTROL_SEND_BLOCKING_TIMEOUT: Duration = Duration::from_millis(500);
+const CONTROL_MIN_BYTES_PER_SEC: u64 = 1024 * 1024;
+
+fn control_write_timeout(len: usize) -> Duration {
+    CONTROL_SEND_TIMEOUT + Duration::from_millis(len as u64 * 1000 / CONTROL_MIN_BYTES_PER_SEC)
+}
+
+pub async fn write_control_stream(
+    mut stream: quinn::SendStream,
+    data: Vec<u8>,
+) -> anyhow::Result<()> {
+    let timeout = control_write_timeout(data.len());
+    let len = (data.len() as u32).to_le_bytes();
+    let mut frame = Vec::with_capacity(4 + data.len());
+    frame.extend_from_slice(&len);
+    frame.extend_from_slice(&data);
+
+    let write = async move {
+        tokio::io::AsyncWriteExt::write_all(&mut stream, &frame)
+            .await
+            .map_err(|e| anyhow::anyhow!("failed to write control data: {}", e))?;
+        stream
+            .finish()
+            .map_err(|e| anyhow::anyhow!("failed to finish control stream: {}", e))
+    };
+    tokio::time::timeout(timeout, write)
+        .await
+        .map_err(|_| anyhow::anyhow!("control write timed out after {:?}", timeout))?
+}
 
 pub struct PeerConnection {
     conn: quinn::Connection,
@@ -115,32 +143,22 @@ impl PeerConnection {
     }
 
     pub async fn send_control(&self, data: Vec<u8>) -> anyhow::Result<()> {
-        tokio::time::timeout(CONTROL_SEND_TIMEOUT, self.send_control_inner(data))
-            .await
-            .map_err(|_| anyhow::anyhow!("control send timed out after {:?}", CONTROL_SEND_TIMEOUT))?
+        let stream = self.open_control_stream(data.len()).await?;
+        write_control_stream(stream, data).await
     }
 
-    async fn send_control_inner(&self, data: Vec<u8>) -> anyhow::Result<()> {
-        validate_control_message_len(data.len())?;
-        let _send_guard = self.control_send_lock.lock().await;
-        let mut stream = self
-            .conn
-            .open_uni()
+    pub async fn open_control_stream(&self, len: usize) -> anyhow::Result<quinn::SendStream> {
+        validate_control_message_len(len)?;
+        let open = async {
+            let _send_guard = self.control_send_lock.lock().await;
+            self.conn
+                .open_uni()
+                .await
+                .map_err(|e| anyhow::anyhow!("failed to open control stream: {}", e))
+        };
+        tokio::time::timeout(CONTROL_SEND_TIMEOUT, open)
             .await
-            .map_err(|e| anyhow::anyhow!("failed to open control stream: {}", e))?;
-        let len = (data.len() as u32).to_le_bytes();
-        let mut frame = Vec::with_capacity(4 + data.len());
-        frame.extend_from_slice(&len);
-        frame.extend_from_slice(&data);
-
-        tokio::io::AsyncWriteExt::write_all(&mut stream, &frame)
-            .await
-            .map_err(|e| anyhow::anyhow!("failed to write control data: {}", e))?;
-        stream
-            .finish()
-            .map_err(|e| anyhow::anyhow!("failed to finish control stream: {}", e))?;
-
-        Ok(())
+            .map_err(|_| anyhow::anyhow!("control send timed out after {:?}", CONTROL_SEND_TIMEOUT))?
     }
 
     pub fn send_control_blocking(self: &Arc<Self>, data: Vec<u8>) -> anyhow::Result<()> {
@@ -228,5 +246,14 @@ mod tests {
         assert!(validate_control_message_len(MAX_CONTROL_MESSAGE_SIZE + 1).is_err());
         // A hostile u32 length must be rejected before any allocation happens.
         assert!(validate_control_message_len(u32::MAX as usize).is_err());
+    }
+
+    #[test]
+    fn control_write_timeout_grows_with_message_size() {
+        assert_eq!(control_write_timeout(0), CONTROL_SEND_TIMEOUT);
+        assert_eq!(
+            control_write_timeout(MAX_CONTROL_MESSAGE_SIZE),
+            CONTROL_SEND_TIMEOUT + Duration::from_secs(16)
+        );
     }
 }

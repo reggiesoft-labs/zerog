@@ -1,4 +1,7 @@
+use std::collections::HashSet;
 use std::sync::Mutex;
+
+const MAX_BROADCAST_ATTEMPTS: u32 = 5;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum SyncState {
@@ -11,6 +14,18 @@ pub enum SyncState {
 #[derive(Debug, Clone)]
 pub struct PendingRemote {
     pub hash: u64,
+    expected_acks: usize,
+    acked_by: HashSet<String>,
+}
+
+impl PendingRemote {
+    fn new(hash: u64, expected_acks: usize) -> Self {
+        Self {
+            hash,
+            expected_acks,
+            acked_by: HashSet::new(),
+        }
+    }
 }
 
 #[derive(Debug, Default)]
@@ -20,6 +35,8 @@ struct ClipboardFsmState {
     last_local_hash: Option<u64>,
     last_timestamp: u64,
     pending_remote: Option<PendingRemote>,
+    unacked_hash: Option<u64>,
+    unacked_attempts: u32,
 }
 
 pub struct ClipboardFsm {
@@ -47,44 +64,78 @@ impl ClipboardFsm {
         state.pending_remote = None;
     }
 
-    pub fn prepare_broadcast(&self, sequence: u64, hash: u64, physical_now: u64) -> u64 {
+    pub fn prepare_broadcast(
+        &self,
+        sequence: u64,
+        hash: u64,
+        physical_now: u64,
+        expected_acks: usize,
+    ) -> u64 {
         let mut state = self.state.lock().unwrap_or_else(|e| e.into_inner());
         let ts = std::cmp::max(physical_now, state.last_timestamp.saturating_add(1));
         state.last_timestamp = ts;
         state.state = SyncState::AwaitingAck(sequence);
-        state.pending_remote = Some(PendingRemote { hash });
+        state.pending_remote = Some(PendingRemote::new(hash, expected_acks));
         ts
     }
 
     pub fn set_awaiting_ack(&self, sequence: u64, hash: u64) {
         let mut state = self.state.lock().unwrap_or_else(|e| e.into_inner());
         state.state = SyncState::AwaitingAck(sequence);
-        state.pending_remote = Some(PendingRemote { hash });
+        state.pending_remote = Some(PendingRemote::new(hash, 1));
     }
 
-    pub fn handle_received_ack(&self, sequence: u64) -> bool {
+    pub fn handle_received_ack(&self, sequence: u64, hash: u64, from: &str) -> bool {
         let mut state = self.state.lock().unwrap_or_else(|e| e.into_inner());
-        if let SyncState::AwaitingAck(pending_seq) = state.state
-            && sequence == pending_seq
-        {
-            state.state = SyncState::Syncing;
-            if let Some(pending) = state.pending_remote.take() {
-                state.last_local_hash = Some(pending.hash);
-            }
-            return true;
+        if state.state != SyncState::AwaitingAck(sequence) {
+            return false;
         }
-        false
+        let Some(pending) = state.pending_remote.as_mut() else {
+            return false;
+        };
+        if pending.hash != hash {
+            return false;
+        }
+        pending.acked_by.insert(from.to_string());
+        if pending.acked_by.len() < pending.expected_acks {
+            return false;
+        }
+        state.state = SyncState::Syncing;
+        state.pending_remote = None;
+        state.last_local_hash = Some(hash);
+        state.unacked_hash = None;
+        state.unacked_attempts = 0;
+        true
     }
 
     pub fn handle_ack_timeout(&self, sequence: u64) {
         let mut state = self.state.lock().unwrap_or_else(|e| e.into_inner());
-        if let SyncState::AwaitingAck(pending_seq) = state.state
-            && sequence == pending_seq
-        {
-            state.state = SyncState::Syncing;
-            state.pending_remote = None;
-            state.last_local_hash = None;
+        if state.state != SyncState::AwaitingAck(sequence) {
+            return;
         }
+        let Some(pending) = state.pending_remote.take() else {
+            return;
+        };
+        state.state = SyncState::Syncing;
+        if state.unacked_hash == Some(pending.hash) {
+            state.unacked_attempts += 1;
+        } else {
+            state.unacked_hash = Some(pending.hash);
+            state.unacked_attempts = 1;
+        }
+        if state.unacked_attempts < MAX_BROADCAST_ATTEMPTS {
+            state.last_local_hash = None;
+            return;
+        }
+        tracing::info!(
+            attempts = state.unacked_attempts,
+            acked = pending.acked_by.len(),
+            expected = pending.expected_acks,
+            "clipboard not acknowledged by every peer, giving up until it changes"
+        );
+        state.last_local_hash = Some(pending.hash);
+        state.unacked_hash = None;
+        state.unacked_attempts = 0;
     }
 
     pub fn notify_peer_disconnected(&self) {
@@ -92,8 +143,9 @@ impl ClipboardFsm {
         state.state = SyncState::Idle;
         state.pending_remote = None;
         state.last_local_hash = None;
-        state.last_timestamp = 0;
         state.suppress_next = false;
+        state.unacked_hash = None;
+        state.unacked_attempts = 0;
     }
 
     pub fn suppress_next_if_same_hash(&self, hash: u64) -> bool {
@@ -144,11 +196,10 @@ impl ClipboardFsm {
         state.suppress_next = true;
     }
 
-    pub fn clear_suppress(&self) {
-        self.state
-            .lock()
-            .unwrap_or_else(|e| e.into_inner())
-            .suppress_next = false;
+    pub fn undo_remote_apply(&self, previous_hash: Option<u64>) {
+        let mut state = self.state.lock().unwrap_or_else(|e| e.into_inner());
+        state.suppress_next = false;
+        state.last_local_hash = previous_hash;
     }
 
     pub fn pending_hash(&self) -> Option<u64> {
@@ -199,9 +250,8 @@ impl Default for ClipboardFsm {
 }
 
 pub fn compute_hash(content: &str) -> u64 {
-    use std::collections::hash_map::DefaultHasher;
     use std::hash::{Hash, Hasher};
-    let mut hasher = DefaultHasher::new();
+    let mut hasher = siphasher::sip::SipHasher13::new_with_keys(0, 0);
     content.hash(&mut hasher);
     hasher.finish()
 }
@@ -235,7 +285,7 @@ mod tests {
     fn test_ack_received_clears_pending() {
         let fsm = ClipboardFsm::new();
         fsm.set_awaiting_ack(42, 123);
-        let result = fsm.handle_received_ack(42);
+        let result = fsm.handle_received_ack(42, 123, "peer-b");
         assert!(result);
         assert!(matches!(fsm.state(), SyncState::Syncing));
         assert!(!fsm.has_pending_remote());
@@ -246,7 +296,7 @@ mod tests {
     fn test_stale_ack_ignored() {
         let fsm = ClipboardFsm::new();
         fsm.set_awaiting_ack(42, 123);
-        let result = fsm.handle_received_ack(999);
+        let result = fsm.handle_received_ack(999, 123, "peer-b");
         assert!(!result);
         assert!(matches!(fsm.state(), SyncState::AwaitingAck(42)));
     }
@@ -282,7 +332,7 @@ mod tests {
         assert!(matches!(fsm.state(), SyncState::Idle));
         assert!(!fsm.has_pending_remote());
         assert_eq!(fsm.last_hash(), None);
-        assert_eq!(fsm.last_timestamp(), 0);
+        assert_eq!(fsm.last_timestamp(), 2000);
         assert!(!fsm.is_suppress_next());
     }
 
@@ -344,7 +394,7 @@ mod tests {
         fsm.apply_remote_content(1000, 123);
         assert_eq!(fsm.last_timestamp(), 1000);
 
-        let ts = fsm.prepare_broadcast(1, 456, 500);
+        let ts = fsm.prepare_broadcast(1, 456, 500, 1);
         assert_eq!(ts, 1001);
         assert_eq!(fsm.last_timestamp(), 1001);
         assert!(matches!(fsm.state(), SyncState::AwaitingAck(1)));
@@ -356,7 +406,7 @@ mod tests {
         let fsm = ClipboardFsm::new();
         fsm.apply_remote_content(1000, 123);
 
-        let ts = fsm.prepare_broadcast(1, 456, 2000);
+        let ts = fsm.prepare_broadcast(1, 456, 2000, 1);
         assert_eq!(ts, 2000);
         assert_eq!(fsm.last_timestamp(), 2000);
     }
@@ -372,7 +422,7 @@ mod tests {
         assert!(!fsm.has_pending_remote());
         assert_eq!(fsm.last_hash(), Some(456));
 
-        assert!(!fsm.handle_received_ack(42));
+        assert!(!fsm.handle_received_ack(42, 123, "peer-b"));
         assert_eq!(fsm.last_hash(), Some(456));
     }
 
@@ -384,5 +434,58 @@ mod tests {
 
         assert_eq!(h1, h2);
         assert_ne!(h1, h3);
+    }
+
+    #[test]
+    fn test_hash_matches_legacy_default_hasher() {
+        use std::collections::hash_map::DefaultHasher;
+        use std::hash::{Hash, Hasher};
+        for text in ["", "hello", "café 世界\r\n", &"x".repeat(10_000)] {
+            let mut legacy = DefaultHasher::new();
+            text.hash(&mut legacy);
+            assert_eq!(compute_hash(text), legacy.finish());
+        }
+    }
+
+    #[test]
+    fn test_ack_requires_matching_hash() {
+        let fsm = ClipboardFsm::new();
+        fsm.set_awaiting_ack(0, 123);
+        assert!(!fsm.handle_received_ack(0, 999, "peer-c"));
+        assert!(matches!(fsm.state(), SyncState::AwaitingAck(0)));
+    }
+
+    #[test]
+    fn test_ack_waits_for_every_peer() {
+        let fsm = ClipboardFsm::new();
+        fsm.prepare_broadcast(7, 123, 1000, 2);
+        assert!(!fsm.handle_received_ack(7, 123, "peer-b"));
+        assert!(!fsm.handle_received_ack(7, 123, "peer-b"));
+        assert!(matches!(fsm.state(), SyncState::AwaitingAck(7)));
+        assert!(fsm.handle_received_ack(7, 123, "peer-c"));
+        assert_eq!(fsm.last_hash(), Some(123));
+    }
+
+    #[test]
+    fn test_ack_timeout_gives_up_after_max_attempts() {
+        let fsm = ClipboardFsm::new();
+        for sequence in 0..u64::from(MAX_BROADCAST_ATTEMPTS) - 1 {
+            fsm.prepare_broadcast(sequence, 123, 1000, 1);
+            fsm.handle_ack_timeout(sequence);
+            assert_eq!(fsm.last_hash(), None);
+        }
+        fsm.prepare_broadcast(99, 123, 1000, 1);
+        fsm.handle_ack_timeout(99);
+        assert_eq!(fsm.last_hash(), Some(123));
+        assert!(matches!(fsm.state(), SyncState::Syncing));
+    }
+
+    #[test]
+    fn test_peer_disconnect_keeps_lamport_timestamp() {
+        let fsm = ClipboardFsm::new();
+        fsm.apply_remote_content(5_000, 123);
+        fsm.notify_peer_disconnected();
+        let ts = fsm.prepare_broadcast(1, 456, 1_000, 1);
+        assert_eq!(ts, 5_001);
     }
 }
