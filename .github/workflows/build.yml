@@ -356,6 +356,69 @@ jobs:
           aws s3 cp dist/latest.json "${R2_ROOT}/latest.json" --endpoint-url "$ENDPOINT_URL"
           aws s3 rm "${R2_ROOT}/" --recursive --exclude "latest/*" --exclude "latest.json" --exclude "staging/*" --endpoint-url "$ENDPOINT_URL"
 
+  update-homebrew-cask:
+    name: Update Homebrew cask
+    runs-on: ubuntu-latest
+    needs: publish-release
+    if: startsWith(github.ref, 'refs/tags/v') && !(github.event_name == 'workflow_dispatch' && inputs.r2_test == true)
+    steps:
+      # Pushing to the tap repository needs a token with contents write access
+      # to it; the default GITHUB_TOKEN only covers this repository.
+      - name: Check tap token
+        id: tap-token
+        env:
+          TAP_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+        run: |
+          if [ -z "$TAP_TOKEN" ]; then
+            echo "::warning::HOMEBREW_TAP_TOKEN is not set; the Homebrew cask was not updated"
+            echo "available=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "available=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Checkout tap
+        if: steps.tap-token.outputs.available == 'true'
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ github.repository_owner }}/homebrew-tap
+          token: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+          path: homebrew-tap
+
+      - name: Point the cask at this release
+        if: steps.tap-token.outputs.available == 'true'
+        env:
+          TAG_NAME: ${{ github.ref_name }}
+          REPO_NAME: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          version="${TAG_NAME#v}"
+          dmg="ZeroG_${version}_universal.dmg"
+          base_url="https://github.com/${REPO_NAME}/releases/download/${TAG_NAME}"
+          curl -fsSL --retry 5 --retry-delay 10 -o "$dmg" "${base_url}/${dmg}"
+          curl -fsSL --retry 5 --retry-delay 10 -o SHA256SUMS.txt "${base_url}/SHA256SUMS.txt"
+          sha="$(sha256sum "$dmg" | cut -d' ' -f1)"
+          published="$(awk -v name="$dmg" '$2 == name { print $1 }' SHA256SUMS.txt)"
+          if [ "$sha" != "$published" ]; then
+            echo "::error::Downloaded ${dmg} hashes to ${sha}, but SHA256SUMS.txt lists '${published}'"
+            exit 1
+          fi
+
+          cd homebrew-tap
+          sed -i -E \
+            -e "s/^  version \"[^\"]*\"$/  version \"${version}\"/" \
+            -e "s/^  sha256 \"[0-9a-f]*\"$/  sha256 \"${sha}\"/" \
+            Casks/zerog.rb
+          grep -q "^  version \"${version}\"$" Casks/zerog.rb
+          grep -q "^  sha256 \"${sha}\"$" Casks/zerog.rb
+          if git diff --quiet; then
+            echo "Cask already points at ${version}"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -am "Update zerog cask to v${version}"
+          git push
+
   cleanup-r2-staging:
     name: Clean R2 staging
     runs-on: ubuntu-latest
