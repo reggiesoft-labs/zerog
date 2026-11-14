@@ -118,6 +118,23 @@ describe("Layout drag and config updates", () => {
     };
   }
 
+  function expectRenderedPlacementsApart(peerIdA, peerIdB) {
+    const rectOf = (peerId) => {
+      const rect = getPeerGroup(peerId).querySelector("rect");
+      return {
+        left: Number(rect.getAttribute("x")),
+        top: Number(rect.getAttribute("y")),
+        right: Number(rect.getAttribute("x")) + Number(rect.getAttribute("width")),
+        bottom: Number(rect.getAttribute("y")) + Number(rect.getAttribute("height")),
+      };
+    };
+    const a = rectOf(peerIdA);
+    const b = rectOf(peerIdB);
+    const overlaps =
+      a.left < b.right && a.right > b.left && a.top < b.bottom && a.bottom > b.top;
+    expect(overlaps).toBe(false);
+  }
+
   describe("4.1 Layout diagram rendering", () => {
     it("renders layout diagram on Status tab by default", async () => {
       const localPeer = buildLocalPeer();
@@ -623,8 +640,13 @@ describe("Layout drag and config updates", () => {
 
       await vi.advanceTimersByTimeAsync(0);
 
-      // Should NOT have saved because Top was filtered out of valid positions
-      expect(savedConfig).toBeNull();
+      // Top is taken by Peer B, so Peer A slides to the nearest open spot
+      // instead of landing on it.
+      const saved = getRenderedPlacement("peer-a");
+      const blocker = getRenderedPlacement("peer-b");
+      expect(blocker).toEqual({ x: SNAP_TOP.x, y: SNAP_TOP.y });
+      expect(saved).not.toEqual({ x: SNAP_TOP.x, y: SNAP_TOP.y });
+      expectRenderedPlacementsApart("peer-a", "peer-b");
     });
   });
 
@@ -788,7 +810,7 @@ describe("Layout drag and config updates", () => {
       expect(seenEdges).toContain("bottom");
     });
 
-    it("stops at last non-overlapping connected position when an edge segment is blocked", async () => {
+    it("stops flush against a neighbour when an edge segment is blocked", async () => {
       const peerA = buildPeer({ peer_id: "peer-a", name: "Alpha" });
       const peerB = buildPeer({ peer_id: "peer-b", name: "Beta" });
 
@@ -839,7 +861,9 @@ describe("Layout drag and config updates", () => {
       });
 
       const afterBlockedMove = getRenderedPlacement("peer-a");
-      expect(afterBlockedMove).toEqual(lastNonOverlappingPlacement);
+      expect(afterBlockedMove.x).toBe(SNAP_RIGHT.x);
+      expect(afterBlockedMove.y).toBeLessThan(40);
+      expectRenderedPlacementsApart("peer-a", "peer-b");
 
       dispatchPointer(svg, "pointerup", { pointerId: 1 });
       await vi.advanceTimersByTimeAsync(0);

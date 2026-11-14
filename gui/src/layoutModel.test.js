@@ -1,10 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { normalizeConnectedPlacement } from "./layoutMath.js";
+import { getNodeSize, getTouchingEdge, normalizeConnectedPlacement } from "./layoutMath.js";
 import {
   buildConfigPayload,
   createLayoutModel,
   getAnchorRect,
   placementWouldOverlap,
+  projectToOpenPlacement,
 } from "./layoutModel.js";
 
 const FULL_HD = { x: 0, y: 0, width: 1920, height: 1080 };
@@ -173,5 +174,32 @@ describe("createLayoutModel with three machines", () => {
     expect(byId.get("b-zulu").x).toBe(0);
     expect(byId.get("b-zulu").y).toBeLessThan(0);
     expectNoOverlaps(model);
+  });
+});
+
+describe("projectToOpenPlacement", () => {
+  it("slides past a neighbour that fills the nearest edge instead of freezing", () => {
+    const tall = makePeer("tall", { x: 0, y: 0, width: 1080, height: 1920 });
+    const dragged = makePeer("dragged");
+    const anchorRect = getAnchorRect(localPeer);
+    const tallSize = getNodeSize(tall);
+    const draggedSize = getNodeSize(dragged);
+    const tallSpot = normalizeConnectedPlacement(anchorRect.width, 0, tallSize, anchorRect);
+    const cache = {
+      localPeer,
+      placements: new Map([["tall", { peerId: "tall", ...tallSpot, size: tallSize }]]),
+    };
+
+    // Pointer just right of the local display's lower-right corner, where
+    // the right edge is the closest one but is taken by `tall`.
+    const target = { x: anchorRect.width / 2 + 40, y: anchorRect.height / 2 + 10 };
+    const spot = projectToOpenPlacement("dragged", target.x, target.y, draggedSize, cache);
+
+    expect(spot).not.toBeNull();
+    expect(placementWouldOverlap("dragged", spot.x, spot.y, draggedSize, cache)).toBe(false);
+    expect(
+      getTouchingEdge(anchorRect, { ...spot, ...draggedSize }),
+    ).toBe("bottom");
+    expect(normalizeConnectedPlacement(spot.x, spot.y, draggedSize, anchorRect)).toEqual(spot);
   });
 });

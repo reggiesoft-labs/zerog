@@ -1,11 +1,7 @@
-import {
-  getNodeSize,
-  LOCAL_ANCHOR,
-  normalizeConnectedPlacement,
-} from "./layoutMath.js";
+import { getNodeSize } from "./layoutMath.js";
 import {
   getPeerById,
-  placementWouldOverlap,
+  projectToOpenPlacement,
   updateConfigPlacement,
 } from "./layoutModel.js";
 
@@ -102,31 +98,18 @@ export function createLayoutInteraction({
     const nextX = Math.round(pointerPoint.x - state.layoutDrag.offsetX);
     const nextY = Math.round(pointerPoint.y - state.layoutDrag.offsetY);
     const draggedPeerSize = state.layoutDrag.nodeSize ?? getNodeSize(state.layoutDrag.peer);
-    const localSize = getNodeSize(state.layoutRenderCache.localPeer);
-    const projected = normalizeConnectedPlacement(
+    const projected = projectToOpenPlacement(
+      state.layoutDrag.peerId,
       nextX,
       nextY,
       draggedPeerSize,
-      {
-        x: LOCAL_ANCHOR.x,
-        y: LOCAL_ANCHOR.y,
-        width: localSize.width,
-        height: localSize.height,
-      },
+      state.layoutRenderCache,
     );
     const currentPlacement = state.layoutRenderCache.placements.get(
       state.layoutDrag.peerId,
     );
 
-    if (
-      placementWouldOverlap(
-        state.layoutDrag.peerId,
-        projected.x,
-        projected.y,
-        draggedPeerSize,
-        state.layoutRenderCache,
-      )
-    ) {
+    if (!projected) {
       event.preventDefault();
       return;
     }

@@ -1,6 +1,9 @@
 import {
+  EDGE_MARGIN,
   LOCAL_ANCHOR,
   clamp,
+  clampPlacementToBounds,
+  getEdgeSlideRange,
   getNodeSize,
   getTouchingEdge,
   normalizeConnectedPlacement,
@@ -206,6 +209,61 @@ function findOpenPlacement(preferred, peerId, size, anchorRect, occupied, localP
   }
 
   return preferred;
+}
+
+const DRAG_SLIDE_STEP = 2;
+
+// Nearest spot to the pointer, on any edge of the local display, that touches
+// no other display, not even by the collision padding, so sliding against a
+// neighbour stops flush with it. Returns null when every edge is full. Lets a
+// drag slide past a neighbour instead of freezing whenever the closest edge
+// is taken.
+export function projectToOpenPlacement(peerId, targetX, targetY, size, { placements, localPeer }) {
+  const anchorRect = getAnchorRect(localPeer);
+  const reachX = anchorRect.width / 2 + EDGE_MARGIN + size.width / 2;
+  const reachY = anchorRect.height / 2 + EDGE_MARGIN + size.height / 2;
+  const edges = [
+    { edge: "right", fixed: anchorRect.x + reachX, horizontal: true },
+    { edge: "left", fixed: anchorRect.x - reachX, horizontal: true },
+    { edge: "top", fixed: anchorRect.y - reachY, horizontal: false },
+    { edge: "bottom", fixed: anchorRect.y + reachY, horizontal: false },
+  ];
+
+  const candidates = [];
+  edges.forEach(({ edge, fixed, horizontal }) => {
+    const range = getEdgeSlideRange(anchorRect, size, edge);
+    const target = clamp(horizontal ? targetY : targetX, range.min, range.max);
+    const slides = [target];
+    for (let along = range.min; along <= range.max; along += DRAG_SLIDE_STEP) {
+      slides.push(along);
+    }
+    slides.push(range.max);
+    slides.forEach((along) => {
+      const position = clampPlacementToBounds(
+        horizontal ? fixed : along,
+        horizontal ? along : fixed,
+        size,
+      );
+      candidates.push({
+        ...position,
+        distance: Math.hypot(position.x - targetX, position.y - targetY),
+      });
+    });
+  });
+
+  candidates.sort((a, b) => a.distance - b.distance);
+  const open = candidates.find(
+    (candidate) =>
+      !placementWouldOverlap(
+        peerId,
+        candidate.x,
+        candidate.y,
+        size,
+        { placements, localPeer },
+        0,
+      ),
+  );
+  return open ? { x: open.x, y: open.y } : null;
 }
 
 export function createLayoutModel(config, peers, status = null) {
@@ -423,6 +481,7 @@ export function placementWouldOverlap(
   y,
   movingSize,
   { placements, localPeer },
+  padding = COLLISION_PADDING,
 ) {
   const key = String(peerId ?? "").trim();
   if (!key) {
@@ -433,13 +492,13 @@ export function placementWouldOverlap(
     x,
     y,
     movingSize ?? getNodeSize(null),
-    COLLISION_PADDING,
+    padding,
   );
   const localRect = getNodeRectForCenter(
     LOCAL_ANCHOR.x,
     LOCAL_ANCHOR.y,
     getNodeSize(localPeer),
-    COLLISION_PADDING,
+    padding,
   );
 
   if (rectsOverlap(movingRect, localRect)) {
@@ -455,7 +514,7 @@ export function placementWouldOverlap(
       otherPlacement.x,
       otherPlacement.y,
       otherPlacement.size,
-      COLLISION_PADDING,
+      padding,
     );
     if (rectsOverlap(movingRect, otherRect)) {
       return true;
