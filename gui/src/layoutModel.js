@@ -95,6 +95,43 @@ function getFallbackPlacement(peerId, index, totalCount) {
   };
 }
 
+// Quarter-steps of the slide reach; 4 would only touch the local display at a corner.
+const OPEN_SPOT_STEPS = [0, 1, -1, 2, -2, 3, -3];
+
+// Keeps the preferred spot when it is free; otherwise tries each edge's
+// center, then slides outward along the edges for the first spot that
+// touches no other display.
+function findOpenPlacement(preferred, peerId, size, anchorRect, occupied, localPeer) {
+  const isOpen = (position) =>
+    !placementWouldOverlap(peerId, position.x, position.y, size, {
+      placements: occupied,
+      localPeer,
+    });
+  if (isOpen(preferred)) {
+    return preferred;
+  }
+
+  const reachX = anchorRect.width / 2 + size.width / 2;
+  const reachY = anchorRect.height / 2 + size.height / 2;
+  const directions = [
+    (step) => ({ x: anchorRect.x + reachX, y: anchorRect.y + (reachY * step) / 4 }),
+    (step) => ({ x: anchorRect.x - reachX, y: anchorRect.y + (reachY * step) / 4 }),
+    (step) => ({ x: anchorRect.x + (reachX * step) / 4, y: anchorRect.y + reachY }),
+    (step) => ({ x: anchorRect.x + (reachX * step) / 4, y: anchorRect.y - reachY }),
+  ];
+  for (const step of OPEN_SPOT_STEPS) {
+    for (const direction of directions) {
+      const target = direction(step);
+      const candidate = normalizeConnectedPlacement(target.x, target.y, size, anchorRect);
+      if (isOpen(candidate)) {
+        return candidate;
+      }
+    }
+  }
+
+  return preferred;
+}
+
 export function createLayoutModel(config, peers, status = null) {
   const localPeer = getLocalPeer(peers);
   const remotePeers = getRemotePeers(peers, status);
@@ -117,24 +154,42 @@ export function createLayoutModel(config, peers, status = null) {
   );
   let unplacedIndex = 0;
 
+  // Shown displays a fallback spot must avoid: persisted ones up front, then
+  // each fallback as it is assigned.
+  const occupied = new Map();
+  remotePeers.forEach((peer) => {
+    const peerId = normalizePeerId(peer.peer_id);
+    const existing = placementMap.get(peerId);
+    if (existing) {
+      occupied.set(peerId, { peerId, x: existing.x, y: existing.y, size: getNodeSize(peer) });
+    }
+  });
+
   return {
     localPeer,
     remotePeers,
     placements: remotePeers.map((peer) => {
       const peerId = normalizePeerId(peer.peer_id);
       const existing = placementMap.get(peerId);
-      let fallback = null;
+      const size = getNodeSize(peer);
+      let position = existing;
       if (!existing) {
-        fallback = getFallbackPlacement(
+        const fallback = getFallbackPlacement(
           peerId,
           unplacedIndex,
           unplacedPeers.length,
         );
         unplacedIndex += 1;
+        position = findOpenPlacement(
+          normalizePlacement(fallback, peer, anchorRect),
+          peerId,
+          size,
+          anchorRect,
+          occupied,
+          localPeer,
+        );
+        occupied.set(peerId, { peerId, x: position.x, y: position.y, size });
       }
-      const position =
-        existing ?? normalizePlacement(fallback, peer, anchorRect);
-      const size = getNodeSize(peer);
 
       return {
         peer,
