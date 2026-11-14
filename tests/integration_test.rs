@@ -14,12 +14,12 @@ fn macos_capture_installation_lifecycle() {
 
 #[cfg(target_os = "linux")]
 #[test]
-fn placeholder_engines_report_not_implemented() {
+#[ignore = "requires a Linux desktop session (X11 or Wayland)"]
+fn linux_factory_builds_desktop_engine() {
     let (platform, _session) = zerog::platform::create_engine_pair(PeerEdge::Right)
-        .expect("placeholder factory should still return an engine object");
-    let err = platform.start().expect_err("placeholder start should fail");
-    assert!(
-        err.to_string().contains("not implemented"),
-        "unexpected placeholder error: {err}"
-    );
+        .expect("Linux factory should build an X11 or Wayland engine");
+    // Starting would install real input capture on the desktop session, so
+    // only production interfaces are exercised here; capture lifecycle is
+    // verified via TestPlatformEngine in the runtime integration tests.
+    let _ = platform.get_display_manager();
 }
