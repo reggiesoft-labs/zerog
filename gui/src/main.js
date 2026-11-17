@@ -2535,6 +2535,19 @@ function bindActions() {
     openExternalUrl,
   );
 
+  // Suppress the webview's browser context menu (Reload, Inspect, etc.),
+  // but keep it in text fields so cut/copy/paste still works.
+  replaceEventHandler(
+    document,
+    "contextmenu",
+    "__mouseThingContextMenuHandler",
+    (event) => {
+      if (!event.target.closest?.("input, textarea, [contenteditable]")) {
+        event.preventDefault();
+      }
+    },
+  );
+
   document.querySelectorAll("[data-window-action]").forEach((control) => {
     const action = control.dataset.windowAction;
     replaceEventHandler(
