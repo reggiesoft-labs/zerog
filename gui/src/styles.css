@@ -350,6 +350,11 @@ body.platform-linux .window-controls {
   height: 7px;
 }
 
+.settings-card.engine-card {
+  /* The empty .config-actions row above already contributes 12px. */
+  margin-top: 0.2rem;
+}
+
 .engine-state {
   color: var(--text);
   font-weight: 600;

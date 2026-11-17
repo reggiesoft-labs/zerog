@@ -114,27 +114,6 @@
 
                 <div class="setting-group">
                   <div class="setting-text">
-                    <span class="setting-title">Engine</span>
-                    <p class="setting-help">
-                      <span id="engine-running" class="engine-state">--</span> · Shares your mouse and keyboard with connected devices.
-                    </p>
-                  </div>
-                  <div class="daemon-actions">
-                    <div class="tooltip-wrapper">
-                      <button id="btn-engine-restart" class="btn btn--restart" type="button" disabled><svg class="btn-glyph" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.25" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12a9 9 0 1 1-2.64-6.36"/><path d="M21 3v6h-6"/></svg><span class="sr-only">Restart</span></button>
-                      <div class="mode-tooltip" role="tooltip"><strong>Restart</strong></div>
-                    </div>
-                    <div class="tooltip-wrapper">
-                      <button id="btn-engine-toggle" class="btn btn-primary" type="button" disabled><svg class="btn-glyph btn-glyph--spin" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.25" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12a9 9 0 1 1-9-9"/></svg><span class="sr-only">...</span></button>
-                      <div class="mode-tooltip" role="tooltip"><strong>Loading</strong></div>
-                    </div>
-                  </div>
-                </div>
-
-                <div class="setting-divider"></div>
-
-                <div class="setting-group">
-                  <div class="setting-text">
                     <label for="auto-update-toggle" class="setting-title">Automatic updates</label>
                     <p class="setting-help">Automatically download and prepare updates in the background.</p>
                   </div>
@@ -258,6 +237,27 @@
                 <p id="config-status" class="config-status" aria-live="polite"></p>
               </div>
             </form>
+
+            <div class="settings-card engine-card">
+              <div class="setting-group">
+                <div class="setting-text">
+                  <span class="setting-title">Engine</span>
+                  <p class="setting-help">
+                    <span id="engine-running" class="engine-state">--</span> · Shares your mouse and keyboard with connected devices.
+                  </p>
+                </div>
+                <div class="daemon-actions">
+                  <div class="tooltip-wrapper">
+                    <button id="btn-engine-restart" class="btn btn--restart" type="button" disabled><svg class="btn-glyph" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.25" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12a9 9 0 1 1-2.64-6.36"/><path d="M21 3v6h-6"/></svg><span class="sr-only">Restart</span></button>
+                    <div class="mode-tooltip" role="tooltip"><strong>Restart</strong></div>
+                  </div>
+                  <div class="tooltip-wrapper">
+                    <button id="btn-engine-toggle" class="btn btn-primary" type="button" disabled><svg class="btn-glyph btn-glyph--spin" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.25" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12a9 9 0 1 1-9-9"/></svg><span class="sr-only">...</span></button>
+                    <div class="mode-tooltip" role="tooltip"><strong>Loading</strong></div>
+                  </div>
+                </div>
+              </div>
+            </div>
 
             <div class="about-card">
               <div class="about-identity">
