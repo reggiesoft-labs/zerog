@@ -518,14 +518,17 @@ const ENGINE_ICON_PATHS = {
 
 // Renders an icon-only engine button. The label stays in the DOM as
 // visually hidden text (so textContent and screen readers still see it)
-// and doubles as the hover tooltip.
+// and is mirrored into the sibling .mode-tooltip shown on hover.
 function setEngineButton(button, { label, icon, className }) {
   if (button.dataset.engineLabel === label && button.className === className) {
     return;
   }
   button.dataset.engineLabel = label;
   button.className = className;
-  button.title = label;
+  const tooltipLabel = button.parentElement?.querySelector(".mode-tooltip strong");
+  if (tooltipLabel) {
+    tooltipLabel.textContent = label;
+  }
   const spin = icon === "busy" ? " btn-glyph--spin" : "";
   button.innerHTML =
     `<svg class="btn-glyph${spin}" viewBox="0 0 24 24" width="16" height="16" fill="none" ` +
