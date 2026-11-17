@@ -345,9 +345,14 @@ body.platform-linux .window-controls {
   gap: 0.4rem;
 }
 
+/* Inline with the label so it can be centred on the capital letters rather
+   than the line box, whose centre shifts with each platform font's metrics. */
 .tab-btn .status-indicator-dot {
   width: 7px;
   height: 7px;
+  margin-right: 0.45rem;
+  vertical-align: 0.1em;
+  vertical-align: calc(0.5cap - 3.5px);
 }
 
 .settings-card.engine-card {
