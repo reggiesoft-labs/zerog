@@ -2868,7 +2868,6 @@ async function handleDomContentLoaded() {
   }
   state.configSaveQueue = createConfigSaveQueue({
     save: (config) => invokeTimed("save_config", { config }, 80),
-    onStart: () => setConfigStatus("Saving..."),
     onSaved: handleConfigSaved,
     onError: handleConfigSaveError,
     onIdle: applyPendingRemoteConfigIfSafe,
