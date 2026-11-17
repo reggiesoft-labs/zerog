@@ -137,6 +137,36 @@
 
                 <div class="setting-group">
                   <div class="setting-text">
+                    <label for="launch-at-login-toggle" class="setting-title">Launch at login</label>
+                    <p class="setting-help">
+                      Start ZeroG in the background when you sign in. Closing the window keeps it running from the menu bar or system tray.
+                    </p>
+                  </div>
+                  <label class="switch-toggle" for="launch-at-login-toggle">
+                    <input type="checkbox" id="launch-at-login-toggle" name="launch-at-login-toggle" />
+                    <span class="switch-slider"></span>
+                  </label>
+                </div>
+
+                <div class="setting-divider" id="hide-dock-divider" hidden></div>
+
+                <div class="setting-group" id="hide-dock-setting" hidden>
+                  <div class="setting-text">
+                    <label for="hide-dock-toggle" class="setting-title">Hide Dock icon when closed</label>
+                    <p class="setting-help">
+                      When the window is closed, ZeroG only shows in the menu bar.
+                    </p>
+                  </div>
+                  <label class="switch-toggle" for="hide-dock-toggle">
+                    <input type="checkbox" id="hide-dock-toggle" name="hide-dock-toggle" />
+                    <span class="switch-slider"></span>
+                  </label>
+                </div>
+
+                <div class="setting-divider"></div>
+
+                <div class="setting-group">
+                  <div class="setting-text">
                     <label for="share-clipboard" class="setting-title">Share clipboard</label>
                     <p class="setting-help">
                       Automatically syncs copied text across connected devices.

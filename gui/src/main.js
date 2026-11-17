@@ -136,6 +136,8 @@ const ui = {
   btnBannerDismiss: null,
   settingsUpdateBadge: null,
   autoUpdateToggle: null,
+  launchAtLoginToggle: null,
+  hideDockToggle: null,
 };
 
 let configSyncListenerRegistered = false;
@@ -209,6 +211,8 @@ function bindElements() {
   ui.btnBannerDismiss = document.querySelector("#btn-banner-dismiss");
   ui.settingsUpdateBadge = document.querySelector("#settings-update-badge");
   ui.autoUpdateToggle = document.querySelector("#auto-update-toggle");
+  ui.launchAtLoginToggle = document.querySelector("#launch-at-login-toggle");
+  ui.hideDockToggle = document.querySelector("#hide-dock-toggle");
   ui.aboutAppVersion = document.querySelector("#about-app-version");
 
   try {
@@ -894,6 +898,44 @@ async function setupConfigSyncListener() {
     configSyncListenerRegistered = true;
   } catch (error) {
     console.warn("[GUI] Failed to register config-sync listener", error);
+  }
+}
+
+/** Sync the Launch at login toggle with the OS login item, including tray-menu changes. */
+async function setupLaunchAtLogin() {
+  if (!ui.launchAtLoginToggle || eventUnlisteners.has("launch-at-login-changed")) {
+    return;
+  }
+  try {
+    ui.launchAtLoginToggle.checked = Boolean(await invoke("get_launch_at_login"));
+    const unlisten = await listen("launch-at-login-changed", (event) => {
+      ui.launchAtLoginToggle.checked = Boolean(event?.payload);
+    });
+    eventUnlisteners.set("launch-at-login-changed", unlisten);
+  } catch (error) {
+    console.warn("[GUI] Failed to read Launch at login state", error);
+  }
+}
+
+/** macOS only: the backend returns null where there is no Dock, keeping the row hidden. */
+async function setupHideDockOnClose() {
+  if (!ui.hideDockToggle || eventUnlisteners.has("hide-dock-on-close-changed")) {
+    return;
+  }
+  try {
+    const enabled = await invoke("get_hide_dock_on_close");
+    if (enabled === null || enabled === undefined) {
+      return;
+    }
+    ui.hideDockToggle.checked = Boolean(enabled);
+    document.querySelector("#hide-dock-setting").hidden = false;
+    document.querySelector("#hide-dock-divider").hidden = false;
+    const unlisten = await listen("hide-dock-on-close-changed", (event) => {
+      ui.hideDockToggle.checked = Boolean(event?.payload);
+    });
+    eventUnlisteners.set("hide-dock-on-close-changed", unlisten);
+  } catch (error) {
+    console.warn("[GUI] Failed to read Dock icon setting", error);
   }
 }
 
@@ -2833,6 +2875,46 @@ function bindActions() {
     );
   }
 
+  if (ui.launchAtLoginToggle) {
+    replaceEventHandler(
+      ui.launchAtLoginToggle,
+      "change",
+      "__zerogLaunchAtLoginToggleHandler",
+      async (e) => {
+        const toggle = e.target;
+        toggle.disabled = true;
+        try {
+          toggle.checked = await invoke("set_launch_at_login", { enabled: Boolean(toggle.checked) });
+        } catch (error) {
+          toggle.checked = !toggle.checked;
+          showError(`Couldn't change Launch at login: ${error}`);
+        } finally {
+          toggle.disabled = false;
+        }
+      },
+    );
+  }
+
+  if (ui.hideDockToggle) {
+    replaceEventHandler(
+      ui.hideDockToggle,
+      "change",
+      "__zerogHideDockToggleHandler",
+      async (e) => {
+        const toggle = e.target;
+        toggle.disabled = true;
+        try {
+          toggle.checked = await invoke("set_hide_dock_on_close", { enabled: Boolean(toggle.checked) });
+        } catch (error) {
+          toggle.checked = !toggle.checked;
+          showError(`Couldn't change Dock icon setting: ${error}`);
+        } finally {
+          toggle.disabled = false;
+        }
+      },
+    );
+  }
+
   if (ui.autoUpdateToggle) {
     replaceEventHandler(
       ui.autoUpdateToggle,
@@ -2890,6 +2972,8 @@ async function handleDomContentLoaded() {
   await setupStatusEventListener();
   await setupConfigSyncListener();
   await setupPairingEventListener();
+  await setupLaunchAtLogin();
+  await setupHideDockOnClose();
   await setupFileTransferListeners();
   await setupFileDropListeners();
   await loadInitialState();

@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 44 44" width="44" height="44">
+  <!-- Menu bar template icon: bracketed screen + cursor, mirrors the app logo. Black on transparent; macOS tints it. -->
+  <g fill="none" stroke="#000" stroke-width="4" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M17 7 H11 a5 5 0 0 0 -5 5 V32 a5 5 0 0 0 5 5 H17"/>
+    <path d="M27 7 H33 a5 5 0 0 1 5 5 V18"/>
+    <path d="M38 30 V32 a5 5 0 0 1 -5 5 H31"/>
+  </g>
+  <path d="M19 15 L35 22.5 L28 24.5 L32.5 32 L29 34 L24.5 26.5 L19.5 31 Z" fill="#000"/>
+</svg>

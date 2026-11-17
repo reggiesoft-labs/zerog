@@ -153,3 +153,21 @@ void zerog_show_accessibility_helper(const char *app_bundle_path) {
         }
     });
 }
+
+// Login item support (used by background.rs).
+
+bool zerog_supports_sm_app_service(void) {
+    NSOperatingSystemVersion macOS13 = {13, 0, 0};
+    return [[NSProcessInfo processInfo] isOperatingSystemAtLeastVersion:macOS13];
+}
+
+// True when macOS opened ZeroG as a login item. SMAppService login items can't
+// pass launch arguments, so the launch Apple event is the only signal.
+bool zerog_launched_as_login_item(void) {
+    NSAppleEventDescriptor *event = [[NSAppleEventManager sharedAppleEventManager] currentAppleEvent];
+    if (event == nil || event.eventID != kAEOpenApplication) {
+        return false;
+    }
+    NSAppleEventDescriptor *prop = [event paramDescriptorForKeyword:keyAEPropData];
+    return prop != nil && prop.enumCodeValue == keyAELaunchedAsLogInItem;
+}

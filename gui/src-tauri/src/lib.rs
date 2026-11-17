@@ -14,6 +14,7 @@
 //! and background discovery loops.
 #![allow(unexpected_cfgs)]
 
+mod background;
 mod telemetry;
 
 use zerog::core::api::{ConfigSnapshot, PeerSnapshot, StatusSnapshot};
@@ -1244,6 +1245,11 @@ pub fn run() {
     install_shutdown_handler(Arc::clone(&app_state.controller));
 
     let app = tauri::Builder::default()
+        // Must be registered first: a second launch focuses the running instance
+        // (which may be hidden in the menu bar / tray) instead of starting another engine.
+        .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
+            background::show_main_window(app);
+        }))
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_notification::init())
         .plugin(tauri_plugin_updater::Builder::new().build())
@@ -1282,7 +1288,11 @@ pub fn run() {
             remove_license_key,
             check_for_updates,
             install_update,
-            restart_app
+            restart_app,
+            background::get_launch_at_login,
+            background::set_launch_at_login,
+            background::get_hide_dock_on_close,
+            background::set_hide_dock_on_close
         ])
         .setup(|app| {
             #[cfg(target_os = "windows")]
@@ -1300,7 +1310,16 @@ pub fn run() {
                 }
             }
 
-            for window in app.webview_windows().values() {
+            if let Err(error) = background::setup_tray(app) {
+                let _ = writeln!(
+                    std::io::stderr(),
+                    "[gui-setup] failed to create tray icon: {error}"
+                );
+            }
+
+            // A login-item start stays in the background (tray / menu bar only).
+            let start_hidden = background::started_hidden();
+            for window in app.webview_windows().values().filter(|_| !start_hidden) {
                 if let Err(error) = window.show() {
                     let _ = writeln!(
                         std::io::stderr(),
@@ -1332,13 +1351,25 @@ pub fn run() {
             let state = app_handle.state::<AppState>();
             stop_controller(&state.controller);
         }
+        // Closing the window hides it; ZeroG keeps sharing input in the background
+        // and is reopened from the tray / menu bar icon or the Dock.
         tauri::RunEvent::WindowEvent {
-            event: tauri::WindowEvent::CloseRequested { .. } | tauri::WindowEvent::Destroyed,
+            label,
+            event: tauri::WindowEvent::CloseRequested { api, .. },
+            ..
+        } => {
+            api.prevent_close();
+            background::hide_window(app_handle, &label);
+        }
+        tauri::RunEvent::WindowEvent {
+            event: tauri::WindowEvent::Destroyed,
             ..
         } => {
             let state = app_handle.state::<AppState>();
             stop_controller(&state.controller);
         }
+        #[cfg(target_os = "macos")]
+        tauri::RunEvent::Reopen { .. } => background::show_main_window(app_handle),
         _ => {}
     });
 }
