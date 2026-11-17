@@ -3,6 +3,7 @@ import { createConfigSaveQueue } from "./configSaveQueue.js";
 import { renderPeerList } from "./peerList.js";
 import { formatPairingCode, formatPeerPlatformLabel, getLegacyIssueMessages } from "./peerViewModel.js";
 import { clientToSvgPoint } from "./layoutInteraction.js";
+import { enhanceSelect } from "./customSelect.js";
 
 function invoke(command, payload) {
   const fn = window.__TAURI__?.core?.invoke;
@@ -95,6 +96,7 @@ const ui = {
   shareClipboard: null,
   keepMouseAlive: null,
   releaseTapKey: null,
+  releaseTapKeyMenu: null,
   autoAcceptFiles: null,
   transferToastContainer: null,
   transfersButton: null,
@@ -168,6 +170,7 @@ function bindElements() {
   ui.shareClipboard = document.querySelector("#share-clipboard");
   ui.keepMouseAlive = document.querySelector("#keep-mouse-alive");
   ui.releaseTapKey = document.querySelector("#release-tap-key");
+  ui.releaseTapKeyMenu = enhanceSelect(ui.releaseTapKey);
   ui.autoAcceptFiles = document.querySelector("#auto-accept-files");
   ui.transferToastContainer = document.querySelector("#transfer-toast-container");
   ui.transferSnackbarContainer = document.querySelector("#transfer-snackbar-container");
@@ -746,6 +749,7 @@ function renderConfig(config, { renderLayout = true } = {}) {
 
   if (ui.releaseTapKey) {
     ui.releaseTapKey.value = config?.release_tap_key ?? "escape";
+    ui.releaseTapKeyMenu?.sync();
   }
 
   if (ui.autoAcceptFiles) {
