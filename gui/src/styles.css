@@ -338,23 +338,34 @@ body.platform-linux .window-controls {
   box-shadow: var(--shadow-sm);
 }
 
-.daemon-card {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 1rem;
-}
-
 .daemon-actions {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
+  gap: 0.35rem;
 }
 
-.daemon-info {
+/* Engine status lives in the titlebar: left side on Linux/Windows, right
+   side on macOS where the traffic lights occupy the left. */
+.titlebar-status {
+  position: absolute;
+  top: 0;
+  left: 0.85rem;
+  height: 100%;
   display: flex;
-  flex-direction: column;
-  gap: 0.2rem;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+body.platform-mac .titlebar-status {
+  left: auto;
+  right: 0.85rem;
+  flex-direction: row-reverse;
+}
+
+.titlebar-status-label {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--text);
 }
 
 .card-label {
@@ -412,13 +423,6 @@ body.platform-linux .window-controls {
   display: flex;
   flex-direction: column;
   gap: 0.25rem;
-}
-
-.value {
-  margin: 0;
-  font-size: 1.35rem;
-  font-weight: 700;
-  letter-spacing: -0.01em;
 }
 
 .peer-list {
@@ -680,9 +684,15 @@ body.platform-linux .window-controls {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 2.4rem;
-  height: 2.4rem;
+  width: 2rem;
+  height: 2rem;
   padding: 0;
+  border-radius: 8px;
+}
+
+.daemon-actions .btn-glyph {
+  width: 14px;
+  height: 14px;
 }
 
 .btn-glyph {
@@ -1297,15 +1307,6 @@ body.platform-linux .window-controls {
   .panel {
     padding: 1rem;
   }
-
-  .daemon-card {
-    flex-direction: column;
-    align-items: flex-start;
-  }
-
-  .daemon-actions {
-    width: 100%;
-  }
 }
 
 .modal-dialog {
@@ -1841,6 +1842,27 @@ body.platform-linux .window-controls {
   transform: translateX(-50%);
   border: 4px solid transparent;
   border-top-color: #121922;
+}
+
+.mode-tooltip--below {
+  top: calc(100% + 8px);
+  bottom: auto;
+  transform: translateX(-50%) translateY(-4px);
+}
+
+.mode-tooltip--below::before,
+.mode-tooltip--below::after {
+  top: auto;
+  bottom: 100%;
+  border-top-color: transparent;
+}
+
+.mode-tooltip--below::before {
+  border-bottom-color: #324050;
+}
+
+.mode-tooltip--below::after {
+  border-bottom-color: #121922;
 }
 
 .about-meta {
