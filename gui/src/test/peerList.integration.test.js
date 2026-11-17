@@ -122,6 +122,34 @@ describe("Peer list display", () => {
 
   });
 
+  describe("Platform badge", () => {
+    it("shows the OS icon for known platforms and text for unknown ones", async () => {
+      const localPeer = buildLocalPeer();
+      await setupWithPeers([
+        localPeer,
+        buildPeer({ peer_id: "peer-mac", name: "Mac", platform: "macos" }),
+        buildPeer({ peer_id: "peer-win", name: "Win", platform: "windows" }),
+        buildPeer({ peer_id: "peer-bsd", name: "Bsd", platform: "freebsd" }),
+      ]);
+
+      const badgeFor = (id) =>
+        document.querySelector(`#peer-list li[data-peer-id="${id}"] .peer-platform-badge`);
+
+      const mac = badgeFor("peer-mac");
+      expect(mac.classList.contains("peer-platform-badge--icon")).toBe(true);
+      expect(mac.querySelector("svg path")).not.toBeNull();
+      expect(mac.getAttribute("aria-label")).toBe("macOS");
+      expect(mac.title).toBe("macOS");
+      expect(mac.textContent).toBe("");
+
+      expect(badgeFor("peer-win").getAttribute("aria-label")).toBe("Windows");
+
+      const bsd = badgeFor("peer-bsd");
+      expect(bsd.classList.contains("peer-platform-badge--icon")).toBe(false);
+      expect(bsd.textContent).toBe("Freebsd");
+    });
+  });
+
   describe("3.2 Connected peer shows connected state", () => {
     it("displays connected indicator and disconnect action for peer in connected_peers array", async () => {
       const localPeer = buildLocalPeer();

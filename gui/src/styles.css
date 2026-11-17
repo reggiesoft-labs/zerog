@@ -353,18 +353,29 @@ body.platform-linux .window-controls {
   min-height: 0;
 }
 
-#tab-main > .panel:first-child {
-  flex-shrink: 0;
-}
-
-.peers-panel {
+/* Layout and Peers share one panel: the diagram keeps its fixed height and the
+   peer list takes the rest, scrolling once it runs out of room. The min-height
+   keeps about two peer rows visible before the whole page starts scrolling. */
+.status-panel {
   flex: 1 1 0;
-  min-height: 12rem;
+  min-height: calc(280px + 16rem);
   display: flex;
   flex-direction: column;
 }
 
-.peers-panel .peer-list {
+.status-panel .layout-diagram {
+  flex-shrink: 0;
+}
+
+.peers-section {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  margin-top: 1.1rem;
+}
+
+.peers-section .peer-list {
   flex: 1;
   min-height: 0;
   overflow-y: auto;
@@ -389,7 +400,11 @@ body.platform-linux .window-controls {
 
 /* Inline with the label so it can be centred on the capital letters rather
    than the line box, whose centre shifts with each platform font's metrics. */
-.tab-btn .status-indicator-dot {
+.engine-title {
+  cursor: default;
+}
+
+.engine-title .status-indicator-dot {
   width: 7px;
   height: 7px;
   margin-right: 0.45rem;
@@ -564,6 +579,20 @@ body.platform-linux .window-controls {
   color: var(--muted);
   border: 1px solid rgba(148, 163, 184, 0.18);
   letter-spacing: 0.02em;
+}
+
+.peer-platform-badge--icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  color: color-mix(in srgb, var(--text) 72%, var(--muted));
+}
+
+.peer-platform-badge--icon svg {
+  display: block;
 }
 
 .peer-actions {

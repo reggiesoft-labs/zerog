@@ -12,9 +12,7 @@
     <header class="window-titlebar" data-tauri-drag-region>
       <nav class="tab-nav" aria-label="Primary tabs" data-tauri-drag-region>
         <div class="tab-nav-pill">
-          <button class="tab-btn tab-btn--active" type="button" data-tab="tab-main">
-            <span><span class="status-indicator-dot status-indicator-dot--stopped" id="daemon-indicator" aria-hidden="true"></span>Status</span>
-          </button>
+          <button class="tab-btn tab-btn--active" type="button" data-tab="tab-main">Status</button>
           <button
             id="btn-transfers"
             class="tab-btn"
@@ -57,7 +55,7 @@
 
       <div class="tab-content">
         <section id="tab-main" class="tab-pane tab-pane--active">
-          <section class="panel">
+          <section class="panel status-panel">
             <div class="panel-header">
               <h2>Layout</h2>
               <p class="config-help">
@@ -74,13 +72,11 @@
                 aria-label="Peer layout editor"
               ></svg>
             </div>
-          </section>
 
-          <section class="panel peers-panel">
-            <div class="panel-header">
+            <div class="peers-section">
               <h2>Peers</h2>
+              <ul id="peer-list" class="peer-list"></ul>
             </div>
-            <ul id="peer-list" class="peer-list"></ul>
           </section>
         </section>
 
@@ -240,7 +236,7 @@
             <div class="settings-card engine-card">
               <div class="setting-group">
                 <div class="setting-text">
-                  <span class="setting-title">Engine</span>
+                  <span class="setting-title engine-title"><span class="status-indicator-dot status-indicator-dot--stopped" id="daemon-indicator" aria-hidden="true"></span>Engine</span>
                   <p class="setting-help">
                     <span id="engine-running" class="engine-state">--</span> · Runs while ZeroG is open. Restart it if devices stop responding.
                   </p>

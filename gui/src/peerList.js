@@ -1,9 +1,11 @@
+import { OS_ICON_PATHS } from "./layoutRenderer.js";
 import {
   formatPeerHost,
   formatPeerPlatformLabel,
   formatRelativeTime,
   getPeerConnectionState,
   getPeerDisplayName,
+  getPeerOsKind,
   getPeerRowKey,
   isPeerConnectable,
   isPeerConnected,
@@ -162,7 +164,21 @@ export function renderPeerList({
     if (platformLabel) {
       const platformBadge = document.createElement("span");
       platformBadge.className = "peer-platform-badge";
-      platformBadge.textContent = platformLabel;
+      const osKind = getPeerOsKind(peer.platform);
+      const iconPath = OS_ICON_PATHS[osKind];
+      if (iconPath) {
+        // Same glyphs as the layout diagram; the label stays as the tooltip
+        // and accessible name.
+        platformBadge.classList.add("peer-platform-badge--icon", `peer-platform-badge--${osKind}`);
+        platformBadge.title = platformLabel;
+        platformBadge.setAttribute("role", "img");
+        platformBadge.setAttribute("aria-label", platformLabel);
+        platformBadge.innerHTML =
+          `<svg viewBox="0 0 24 24" width="12" height="12" fill="currentColor" aria-hidden="true">` +
+          `<path d="${iconPath}"/></svg>`;
+      } else {
+        platformBadge.textContent = platformLabel;
+      }
       header.append(platformBadge);
     }
 
