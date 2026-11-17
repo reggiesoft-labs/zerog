@@ -157,6 +157,19 @@ export function formatPairingCode(rawCode) {
   return `${digits.slice(0, 3)} ${digits.slice(3)}`;
 }
 
+// Strips the port from a socket address for display:
+// "192.168.1.5:54321" -> "192.168.1.5", "[fe80::1]:54321" -> "fe80::1".
+// Bare IPv6 addresses (multiple colons, no brackets) are returned unchanged.
+export function formatPeerHost(rawAddr) {
+  const addr = String(rawAddr ?? "").trim();
+  const bracketed = addr.match(/^\[([^\]]+)\](?::\d+)?$/);
+  if (bracketed) {
+    return bracketed[1];
+  }
+  const hostPort = addr.match(/^([^:]+):\d+$/);
+  return hostPort ? hostPort[1] : addr;
+}
+
 export function formatPeerPlatformLabel(rawPlatform) {
   const normalized = String(rawPlatform ?? "").trim().toLowerCase();
   if (!normalized) {

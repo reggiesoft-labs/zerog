@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   formatPairingCode,
+  formatPeerHost,
   formatPeerPlatformLabel,
   getPeerOsKind,
   getLegacyIssueMessages,
@@ -176,5 +177,20 @@ describe("normalizePeersSnapshot", () => {
     ];
     const normalized = normalizePeersSnapshot(peers);
     expect(normalized.length).toBe(2);
+  });
+});
+
+describe("formatPeerHost", () => {
+  it("drops the port from IPv4 and bracketed IPv6 addresses", () => {
+    expect(formatPeerHost("192.168.1.169:54321")).toBe("192.168.1.169");
+    expect(formatPeerHost("[fe80::1]:54321")).toBe("fe80::1");
+    expect(formatPeerHost("host.local:80")).toBe("host.local");
+  });
+
+  it("leaves addresses without a port unchanged", () => {
+    expect(formatPeerHost("192.168.1.169")).toBe("192.168.1.169");
+    expect(formatPeerHost("fe80::1")).toBe("fe80::1");
+    expect(formatPeerHost("")).toBe("");
+    expect(formatPeerHost(undefined)).toBe("");
   });
 });

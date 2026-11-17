@@ -1,4 +1,5 @@
 import {
+  formatPeerHost,
   formatPeerPlatformLabel,
   formatRelativeTime,
   getPeerConnectionState,
@@ -169,7 +170,7 @@ export function renderPeerList({
     const timeLabel = formatRelativeTime(peer.last_seen_ms);
 
     meta.className = "peer-meta";
-    meta.textContent = `${peer.addr || peer.hostname || "LAN"} • seen ${timeLabel}`;
+    meta.textContent = `${formatPeerHost(peer.addr) || peer.hostname || "LAN"} • seen ${timeLabel}`;
 
     main.append(header, meta);
     item.append(indicator, main);
