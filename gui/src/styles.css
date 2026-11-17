@@ -639,16 +639,6 @@ body.platform-linux .window-controls {
   color: var(--accent-ink);
 }
 
-.btn--start {
-  border-color: #059669;
-  background: #10b981;
-  color: #ffffff;
-}
-
-.btn--start:hover {
-  background: #059669;
-}
-
 .btn--stop {
   border-color: var(--panel-border);
   background: var(--card-bg);
@@ -692,18 +682,6 @@ body.platform-linux .window-controls {
 .daemon-actions .btn--restart:hover:not(:disabled),
 .daemon-actions .btn-primary {
   color: var(--accent);
-}
-
-.daemon-actions .btn--stop {
-  color: var(--error);
-}
-
-.daemon-actions .btn--stop:hover:not(:disabled) {
-  background: var(--error-bg);
-}
-
-.daemon-actions .btn--start {
-  color: var(--success);
 }
 
 .daemon-actions .btn:disabled {

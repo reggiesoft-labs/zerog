@@ -177,7 +177,7 @@ describe("Tab switching and event-driven updates", () => {
       registerDefaultCommands({
         status: defaultStatus(),
         commands: {
-          start_engine: () => Promise.reject({ code: "socket_bind_failed", message: "Port in use" }),
+          restart_engine: () => Promise.reject({ code: "socket_bind_failed", message: "Port in use" }),
         },
       });
 
@@ -186,7 +186,7 @@ describe("Tab switching and event-driven updates", () => {
       stubSvgMethods();
       await initApp();
 
-      const btn = document.querySelector("#btn-engine-toggle");
+      const btn = document.querySelector("#btn-engine-restart");
       const errorBanner = document.querySelector("#error-banner");
 
       btn.click();

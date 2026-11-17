@@ -61,7 +61,7 @@ describe("Error handling", () => {
         registerDefaultCommands({
           status: defaultStatus({ engine_running: false }),
           commands: {
-            start_engine: () =>
+            restart_engine: () =>
               Promise.reject({ code, message: "Original error message" }),
           },
         });
@@ -71,7 +71,7 @@ describe("Error handling", () => {
         stubSvgMethods();
         await initApp();
 
-        const btn = getButton("#btn-engine-toggle");
+        const btn = getButton("#btn-engine-restart");
         btn.click();
         await vi.advanceTimersByTimeAsync(0);
 
@@ -86,7 +86,7 @@ describe("Error handling", () => {
       registerDefaultCommands({
         status: defaultStatus({ engine_running: false }),
         commands: {
-          start_engine: () =>
+          restart_engine: () =>
             Promise.reject({ message: "Something went wrong" }),
         },
       });
@@ -96,7 +96,7 @@ describe("Error handling", () => {
       stubSvgMethods();
       await initApp();
 
-      const btn = getButton("#btn-engine-toggle");
+      const btn = getButton("#btn-engine-restart");
       btn.click();
       await vi.advanceTimersByTimeAsync(0);
 
@@ -120,7 +120,7 @@ describe("Error handling", () => {
         registerDefaultCommands({
           status: defaultStatus({ engine_running: false }),
           commands: {
-            start_engine: () => Promise.reject(error),
+            restart_engine: () => Promise.reject(error),
           },
         });
 
@@ -129,7 +129,7 @@ describe("Error handling", () => {
         stubSvgMethods();
         await initApp();
 
-        const btn = getButton("#btn-engine-toggle");
+        const btn = getButton("#btn-engine-restart");
         btn.click();
         await vi.advanceTimersByTimeAsync(0);
 
@@ -144,7 +144,7 @@ describe("Error handling", () => {
       registerDefaultCommands({
         status: defaultStatus({ engine_running: false }),
         commands: {
-          start_engine: () =>
+          restart_engine: () =>
             Promise.reject({ message: "Error without code" }),
         },
       });
@@ -154,7 +154,7 @@ describe("Error handling", () => {
       stubSvgMethods();
       await initApp();
 
-      const btn = getButton("#btn-engine-toggle");
+      const btn = getButton("#btn-engine-restart");
       btn.click();
       await vi.advanceTimersByTimeAsync(0);
 
@@ -168,7 +168,7 @@ describe("Error handling", () => {
       registerDefaultCommands({
         status: defaultStatus({ engine_running: false }),
         commands: {
-          start_engine: () =>
+          restart_engine: () =>
             Promise.reject({ code: "unknown_code", message: "Unknown error details" }),
         },
       });
@@ -178,7 +178,7 @@ describe("Error handling", () => {
       stubSvgMethods();
       await initApp();
 
-      const btn = getButton("#btn-engine-toggle");
+      const btn = getButton("#btn-engine-restart");
       btn.click();
       await vi.advanceTimersByTimeAsync(0);
 
@@ -194,7 +194,7 @@ describe("Error handling", () => {
       registerDefaultCommands({
         status: defaultStatus({ engine_running: false }),
         commands: {
-          start_engine: () =>
+          restart_engine: () =>
             Promise.reject({
               code: "accessibility_permission_missing",
               message: "Permission denied",
@@ -207,7 +207,7 @@ describe("Error handling", () => {
       stubSvgMethods();
       await initApp();
 
-      const btn = getButton("#btn-engine-toggle");
+      const btn = getButton("#btn-engine-restart");
       btn.click();
       await vi.advanceTimersByTimeAsync(0);
 
@@ -220,7 +220,7 @@ describe("Error handling", () => {
       registerDefaultCommands({
         status: defaultStatus({ engine_running: false }),
         commands: {
-          start_engine: () =>
+          restart_engine: () =>
             Promise.reject({
               code: "accessibility_permission_missing",
               message: "Permission denied",
@@ -237,7 +237,7 @@ describe("Error handling", () => {
       stubSvgMethods();
       await initApp();
 
-      const btn = getButton("#btn-engine-toggle");
+      const btn = getButton("#btn-engine-restart");
       btn.click();
       await vi.advanceTimersByTimeAsync(0);
 
@@ -255,7 +255,7 @@ describe("Error handling", () => {
       registerDefaultCommands({
         status: defaultStatus({ engine_running: false }),
         commands: {
-          start_engine: () =>
+          restart_engine: () =>
             Promise.reject({
               code: "socket_bind_failed",
               message: "Port in use",
@@ -269,7 +269,7 @@ describe("Error handling", () => {
       stubSvgMethods();
       await initApp();
 
-      const btn = getButton("#btn-engine-toggle");
+      const btn = getButton("#btn-engine-restart");
       btn.click();
       await vi.advanceTimersByTimeAsync(0);
 

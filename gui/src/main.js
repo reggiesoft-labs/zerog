@@ -63,7 +63,6 @@ const state = {
     dragLastMoveTs: 0,
   },
   meshActionInProgress: false,
-  engineRestartInProgress: false,
   peerActionsInFlight: new Set(),
   windowsInput: null,
   windowsInputLoading: false,
@@ -91,7 +90,6 @@ const ui = {
   tabPanes: null,
   layoutSvg: null,
   engineRestart: null,
-  engineToggle: null,
   keyboardStripContainer: null,
   shareClipboard: null,
   keepMouseAlive: null,
@@ -165,7 +163,6 @@ function bindElements() {
   ui.tabPanes = document.querySelectorAll(".tab-pane");
   ui.layoutSvg = document.querySelector("#layout-svg");
   ui.engineRestart = document.querySelector("#btn-engine-restart");
-  ui.engineToggle = document.querySelector("#btn-engine-toggle");
   ui.keyboardStripContainer = document.querySelector("#keyboard-strip-container");
   ui.shareClipboard = document.querySelector("#share-clipboard");
   ui.keepMouseAlive = document.querySelector("#keep-mouse-alive");
@@ -503,15 +500,13 @@ function renderStatus(status) {
     indicator.className = `status-indicator-dot ${status.engine_running ? "status-indicator-dot--running" : "status-indicator-dot--stopped"}`;
   }
   renderPeerListView(state.peers);
-  updateEngineToggleButton();
+  updateEngineRestartButton();
   if (isStatusTabActive() && !state.layoutDrag) {
     layoutController?.renderLayoutDiagram();
   }
 }
 
 const ENGINE_ICON_PATHS = {
-  start: '<path d="M7 4.5v15l12-7.5z" fill="currentColor" stroke="none"/>',
-  stop: '<rect x="6" y="6" width="12" height="12" rx="2" fill="currentColor" stroke="none"/>',
   restart: '<path d="M21 12a9 9 0 1 1-2.64-6.36"/><path d="M21 3v6h-6"/>',
   busy: '<path d="M21 12a9 9 0 1 1-9-9"/>',
 };
@@ -536,41 +531,24 @@ function setEngineButton(button, { label, icon, className }) {
     `aria-hidden="true">${ENGINE_ICON_PATHS[icon]}</svg><span class="sr-only">${label}</span>`;
 }
 
-function updateEngineToggleButton() {
-  const isRunning = state.status?.engine_running ?? false;
-  const isInProgress = state.meshActionInProgress;
-
-  if (ui.engineToggle) {
-    ui.engineToggle.disabled = isInProgress;
-
-    if (isInProgress) {
-      if (state.engineRestartInProgress) {
-        setEngineButton(ui.engineToggle, { label: "Stop", icon: "stop", className: "btn btn--stop" });
-      } else {
-        setEngineButton(ui.engineToggle, {
-          label: isRunning ? "Stopping..." : "Starting...",
-          icon: "busy",
-          className: "btn btn-primary",
-        });
-      }
-    } else if (isRunning) {
-      setEngineButton(ui.engineToggle, { label: "Stop", icon: "stop", className: "btn btn--stop" });
-    } else {
-      setEngineButton(ui.engineToggle, { label: "Start", icon: "start", className: "btn btn--start" });
-    }
+// The engine runs whenever the window is open (it starts at launch and stops
+// on close), so the only control is Restart. It stays enabled while stopped
+// so a failed start can be retried; restart_engine starts a stopped engine.
+function updateEngineRestartButton() {
+  if (!ui.engineRestart) {
+    return;
   }
 
-  if (ui.engineRestart) {
-    ui.engineRestart.disabled = isInProgress || !isRunning;
-    if (state.engineRestartInProgress) {
-      setEngineButton(ui.engineRestart, {
-        label: "Restarting...",
-        icon: "busy",
-        className: "btn btn-primary",
-      });
-    } else {
-      setEngineButton(ui.engineRestart, { label: "Restart", icon: "restart", className: "btn btn--restart" });
-    }
+  const isInProgress = state.meshActionInProgress;
+  ui.engineRestart.disabled = isInProgress;
+  if (isInProgress) {
+    setEngineButton(ui.engineRestart, {
+      label: "Restarting...",
+      icon: "busy",
+      className: "btn btn-primary",
+    });
+  } else {
+    setEngineButton(ui.engineRestart, { label: "Restart", icon: "restart", className: "btn btn--restart" });
   }
 }
 
@@ -2407,38 +2385,13 @@ async function loadInitialState() {
   }
 }
 
-async function handleEngineToggle() {
-  if (state.meshActionInProgress) {
-    return;
-  }
-
-  const isRunning = state.status?.engine_running ?? false;
-  state.meshActionInProgress = true;
-  updateEngineToggleButton();
-
-  try {
-    const nextStatus = await invoke(isRunning ? "stop_engine" : "start_engine");
-    renderStatus(nextStatus);
-    await loadPeersSnapshot();
-    clearError();
-  } catch (error) {
-    showError(unwrapCommandError(error));
-  } finally {
-    state.meshActionInProgress = false;
-    updateEngineToggleButton();
-    ui.engineToggle?.blur();
-    document.activeElement?.blur();
-  }
-}
-
 async function handleEngineRestart() {
   if (state.meshActionInProgress) {
     return;
   }
 
   state.meshActionInProgress = true;
-  state.engineRestartInProgress = true;
-  updateEngineToggleButton();
+  updateEngineRestartButton();
 
   try {
     const nextStatus = await invoke("restart_engine");
@@ -2448,9 +2401,8 @@ async function handleEngineRestart() {
   } catch (error) {
     showError(unwrapCommandError(error));
   } finally {
-    state.engineRestartInProgress = false;
     state.meshActionInProgress = false;
-    updateEngineToggleButton();
+    updateEngineRestartButton();
     ui.engineRestart?.blur();
     document.activeElement?.blur();
   }
@@ -2632,15 +2584,6 @@ function bindActions() {
       "click",
       "__mouseThingEngineRestartHandler",
       handleEngineRestart,
-    );
-  }
-
-  if (ui.engineToggle) {
-    replaceEventHandler(
-      ui.engineToggle,
-      "click",
-      "__mouseThingEngineToggleHandler",
-      handleEngineToggle,
     );
   }
 
