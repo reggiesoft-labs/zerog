@@ -85,11 +85,20 @@ html, body {
   background: var(--muted);
 }
 
+/* Fixed-height column: the titlebar stays put and .app-shell is the scroller,
+   so the Status tab can hand its leftover height to the Peers panel. */
 body {
   margin: 0;
-  min-height: 100vh;
+  height: 100vh;
   padding: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
   background-color: var(--bg);
+}
+
+.window-titlebar {
+  flex-shrink: 0;
 }
 
 .window-titlebar {
@@ -104,9 +113,12 @@ body {
 }
 
 .app-shell {
-  width: min(780px, 100%);
-  margin: 0 auto;
-  padding: 0.5rem 1.25rem 1.25rem;
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  /* Full-width so the scrollbar sits at the window edge; the inline padding
+     keeps content in the same centred 780px column as before. */
+  padding: 0.5rem max(1.25rem, calc((100% - 780px) / 2 + 1.25rem)) 1.25rem;
   display: flex;
   flex-direction: column;
   gap: 0.85rem;
@@ -327,6 +339,36 @@ body.platform-linux .window-controls {
 .tab-pane--active {
   display: flex;
   animation: fade-in 200ms ease both;
+}
+
+/* Status tab: bound the height so the Peers panel fills what the Layout panel
+   leaves and scrolls its own list. Rows keep their natural height. */
+.tab-content:has(#tab-main.tab-pane--active) {
+  flex: 1;
+  min-height: 0;
+}
+
+#tab-main.tab-pane--active {
+  flex: 1;
+  min-height: 0;
+}
+
+#tab-main > .panel:first-child {
+  flex-shrink: 0;
+}
+
+.peers-panel {
+  flex: 1 1 0;
+  min-height: 12rem;
+  display: flex;
+  flex-direction: column;
+}
+
+.peers-panel .peer-list {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
 }
 
 .card,
