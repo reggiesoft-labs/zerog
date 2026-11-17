@@ -94,8 +94,9 @@ body {
 
 .window-titlebar {
   width: 100%;
-  height: 48px;
+  height: 56px;
   position: relative;
+  z-index: 20;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -344,28 +345,51 @@ body.platform-linux .window-controls {
   gap: 0.35rem;
 }
 
-/* Engine status lives in the titlebar: left side on Linux/Windows, right
-   side on macOS where the traffic lights occupy the left. */
+/* Engine status lives in the titlebar as a pill that mirrors the tab pill:
+   left side on Linux/Windows, right side on macOS where the traffic lights
+   occupy the left. The inset tracks .app-shell so it lines up with the cards. */
 .titlebar-status {
+  --titlebar-inset: max(1.25rem, calc((100vw - 780px) / 2 + 1.25rem));
   position: absolute;
-  top: 0;
-  left: 0.85rem;
-  height: 100%;
+  top: 50%;
+  left: var(--titlebar-inset);
+  transform: translateY(-50%);
   display: flex;
   align-items: center;
-  gap: 0.75rem;
+  gap: 2px;
+  padding: 3px;
+  background: var(--panel);
+  border: 1px solid var(--panel-border);
+  border-radius: 12px;
+  box-shadow: var(--shadow-sm);
 }
 
 body.platform-mac .titlebar-status {
   left: auto;
-  right: 0.85rem;
-  flex-direction: row-reverse;
+  right: var(--titlebar-inset);
+}
+
+.titlebar-status .daemon-status-row {
+  gap: 0.5rem;
+  padding: 0 0.7rem 0 0.6rem;
+  height: 30px;
+}
+
+.titlebar-status .status-indicator-dot {
+  width: 7px;
+  height: 7px;
 }
 
 .titlebar-status-label {
-  font-size: 0.85rem;
+  font-size: 0.82rem;
   font-weight: 600;
   color: var(--text);
+}
+
+.titlebar-status .daemon-actions {
+  gap: 2px;
+  padding-left: 3px;
+  border-left: 1px solid var(--panel-border);
 }
 
 .card-label {
@@ -684,10 +708,36 @@ body.platform-mac .titlebar-status {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 2rem;
-  height: 2rem;
+  width: 30px;
+  height: 30px;
   padding: 0;
-  border-radius: 8px;
+  border: none;
+  border-radius: 9px;
+  background: transparent;
+  color: var(--muted);
+  filter: none;
+}
+
+.daemon-actions .btn:hover:not(:disabled) {
+  background: var(--card-bg);
+  box-shadow: var(--shadow-sm);
+}
+
+.daemon-actions .btn--restart:hover:not(:disabled),
+.daemon-actions .btn-primary {
+  color: var(--accent);
+}
+
+.daemon-actions .btn--stop {
+  color: var(--error);
+}
+
+.daemon-actions .btn--start {
+  color: var(--success);
+}
+
+.daemon-actions .btn:disabled {
+  opacity: 0.4;
 }
 
 .daemon-actions .btn-glyph {
