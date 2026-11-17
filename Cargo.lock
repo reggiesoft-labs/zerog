@@ -1642,7 +1642,7 @@ dependencies = [
 
 [[package]]
 name = "gui"
-version = "1.1.0"
+version = "1.2.0"
 dependencies = [
  "anyhow",
  "ctrlc",
@@ -6407,7 +6407,7 @@ dependencies = [
 
 [[package]]
 name = "zerog"
-version = "1.1.0"
+version = "1.2.0"
 dependencies = [
  "anyhow",
  "ashpd",
