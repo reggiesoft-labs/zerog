@@ -2199,9 +2199,8 @@ async function checkForUpdates({ silent = false } = {}) {
         }
       }
     } else {
-      const cur = res?.current_version ? ` v${res.current_version}` : "";
       if (ui.updaterStatusText) {
-        ui.updaterStatusText.textContent = `ZeroG${cur} is up to date.`;
+        ui.updaterStatusText.textContent = "Up to date.";
       }
       if (res?.current_version && ui.aboutAppVersion) {
         ui.aboutAppVersion.textContent = `v${res.current_version}`;

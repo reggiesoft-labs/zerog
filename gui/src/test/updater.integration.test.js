@@ -47,7 +47,7 @@ describe("Software updater integration", () => {
     checkBtn.click();
     await vi.advanceTimersByTimeAsync(0);
 
-    expect(statusText.textContent).toContain("ZeroG v1.0.0 is up to date");
+    expect(statusText.textContent).toBe("Up to date.");
     expect(installBtn.hidden).toBe(true);
     expect(checkBtn.disabled).toBe(false);
   });
