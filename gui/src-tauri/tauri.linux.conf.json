@@ -1,5 +1,17 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
+  "app": {
+    "windows": [
+      {
+        "title": "ZeroG",
+        "width": 800,
+        "height": 780,
+        "theme": "Dark",
+        "visible": false,
+        "decorations": false
+      }
+    ]
+  },
   "bundle": {
     "icon": [
       "icons/linux/512x512.png"
