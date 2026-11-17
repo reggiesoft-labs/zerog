@@ -509,6 +509,30 @@ function renderStatus(status) {
   }
 }
 
+const ENGINE_ICON_PATHS = {
+  start: '<path d="M7 4.5v15l12-7.5z" fill="currentColor" stroke="none"/>',
+  stop: '<rect x="6" y="6" width="12" height="12" rx="2" fill="currentColor" stroke="none"/>',
+  restart: '<path d="M21 12a9 9 0 1 1-2.64-6.36"/><path d="M21 3v6h-6"/>',
+  busy: '<path d="M21 12a9 9 0 1 1-9-9"/>',
+};
+
+// Renders an icon-only engine button. The label stays in the DOM as
+// visually hidden text (so textContent and screen readers still see it)
+// and doubles as the hover tooltip.
+function setEngineButton(button, { label, icon, className }) {
+  if (button.dataset.engineLabel === label && button.className === className) {
+    return;
+  }
+  button.dataset.engineLabel = label;
+  button.className = className;
+  button.title = label;
+  const spin = icon === "busy" ? " btn-glyph--spin" : "";
+  button.innerHTML =
+    `<svg class="btn-glyph${spin}" viewBox="0 0 24 24" width="16" height="16" fill="none" ` +
+    `stroke="currentColor" stroke-width="2.25" stroke-linecap="round" stroke-linejoin="round" ` +
+    `aria-hidden="true">${ENGINE_ICON_PATHS[icon]}</svg><span class="sr-only">${label}</span>`;
+}
+
 function updateEngineToggleButton() {
   const isRunning = state.status?.engine_running ?? false;
   const isInProgress = state.meshActionInProgress;
@@ -518,29 +542,31 @@ function updateEngineToggleButton() {
 
     if (isInProgress) {
       if (state.engineRestartInProgress) {
-        ui.engineToggle.textContent = "Stop";
-        ui.engineToggle.className = "btn btn--stop";
+        setEngineButton(ui.engineToggle, { label: "Stop", icon: "stop", className: "btn btn--stop" });
       } else {
-        ui.engineToggle.textContent = isRunning ? "Stopping..." : "Starting...";
-        ui.engineToggle.className = "btn btn-primary";
+        setEngineButton(ui.engineToggle, {
+          label: isRunning ? "Stopping..." : "Starting...",
+          icon: "busy",
+          className: "btn btn-primary",
+        });
       }
     } else if (isRunning) {
-      ui.engineToggle.textContent = "Stop";
-      ui.engineToggle.className = "btn btn--stop";
+      setEngineButton(ui.engineToggle, { label: "Stop", icon: "stop", className: "btn btn--stop" });
     } else {
-      ui.engineToggle.textContent = "Start";
-      ui.engineToggle.className = "btn btn--start";
+      setEngineButton(ui.engineToggle, { label: "Start", icon: "start", className: "btn btn--start" });
     }
   }
 
   if (ui.engineRestart) {
     ui.engineRestart.disabled = isInProgress || !isRunning;
     if (state.engineRestartInProgress) {
-      ui.engineRestart.textContent = "Restarting...";
-      ui.engineRestart.className = "btn btn-primary";
+      setEngineButton(ui.engineRestart, {
+        label: "Restarting...",
+        icon: "busy",
+        className: "btn btn-primary",
+      });
     } else {
-      ui.engineRestart.textContent = "Restart";
-      ui.engineRestart.className = "btn btn--restart";
+      setEngineButton(ui.engineRestart, { label: "Restart", icon: "restart", className: "btn btn--restart" });
     }
   }
 }
