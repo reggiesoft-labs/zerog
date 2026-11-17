@@ -16,11 +16,11 @@ Download the latest version for your platform from the [GitHub Releases](https:/
 
 | Platform | Installer | Notes |
 | :--- | :--- | :--- |
-| **Windows** | [ZeroG Setup (.exe)](https://github.com/reggiesoft-labs/zerog/releases/latest/download/ZeroG_1.2.0_x64-setup.exe) | Windows 10 / 11 (64-bit) |
-| **macOS** | [ZeroG Universal (.dmg)](https://github.com/reggiesoft-labs/zerog/releases/latest/download/ZeroG_1.2.0_universal.dmg) | Apple Silicon & Intel (macOS 12+) |
-| **Linux (Debian/Ubuntu)** | [ZeroG (.deb)](https://github.com/reggiesoft-labs/zerog/releases/latest/download/ZeroG_1.2.0_amd64.deb) | Ubuntu, Debian, Pop!_OS |
-| **Linux (Fedora/RHEL)** | [ZeroG (.rpm)](https://github.com/reggiesoft-labs/zerog/releases/latest/download/ZeroG-1.2.0-1.x86_64.rpm) | Fedora, openSUSE, RHEL |
-| **Linux (Universal)** | [ZeroG (.AppImage)](https://github.com/reggiesoft-labs/zerog/releases/latest/download/ZeroG_1.2.0_amd64.AppImage) | Standalone portable bundle |
+| **Windows** | [ZeroG Setup (.exe)](https://github.com/reggiesoft-labs/zerog/releases/latest/download/ZeroG_1.2.1_x64-setup.exe) | Windows 10 / 11 (64-bit) |
+| **macOS** | [ZeroG Universal (.dmg)](https://github.com/reggiesoft-labs/zerog/releases/latest/download/ZeroG_1.2.1_universal.dmg) | Apple Silicon & Intel (macOS 12+) |
+| **Linux (Debian/Ubuntu)** | [ZeroG (.deb)](https://github.com/reggiesoft-labs/zerog/releases/latest/download/ZeroG_1.2.1_amd64.deb) | Ubuntu, Debian, Pop!_OS |
+| **Linux (Fedora/RHEL)** | [ZeroG (.rpm)](https://github.com/reggiesoft-labs/zerog/releases/latest/download/ZeroG-1.2.1-1.x86_64.rpm) | Fedora, openSUSE, RHEL |
+| **Linux (Universal)** | [ZeroG (.AppImage)](https://github.com/reggiesoft-labs/zerog/releases/latest/download/ZeroG_1.2.1_amd64.AppImage) | Standalone portable bundle |
 
 ### macOS (Homebrew)
 
