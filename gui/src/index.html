@@ -10,25 +10,12 @@
 
   <body>
     <header class="window-titlebar" data-tauri-drag-region>
-      <div class="titlebar-status" data-tauri-drag-region>
-        <div class="daemon-status-row" data-tauri-drag-region>
-          <span class="status-indicator-dot status-indicator-dot--stopped" id="daemon-indicator" aria-hidden="true"></span>
-          <span id="engine-running" class="titlebar-status-label" data-tauri-drag-region>--</span>
-        </div>
-        <div class="daemon-actions">
-          <div class="tooltip-wrapper">
-            <button id="btn-engine-restart" class="btn btn--restart" type="button" disabled><svg class="btn-glyph" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.25" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12a9 9 0 1 1-2.64-6.36"/><path d="M21 3v6h-6"/></svg><span class="sr-only">Restart</span></button>
-            <div class="mode-tooltip mode-tooltip--below" role="tooltip"><strong>Restart</strong></div>
-          </div>
-          <div class="tooltip-wrapper">
-            <button id="btn-engine-toggle" class="btn btn-primary" type="button" disabled><svg class="btn-glyph btn-glyph--spin" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.25" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12a9 9 0 1 1-9-9"/></svg><span class="sr-only">...</span></button>
-            <div class="mode-tooltip mode-tooltip--below" role="tooltip"><strong>Loading</strong></div>
-          </div>
-        </div>
-      </div>
       <nav class="tab-nav" aria-label="Primary tabs" data-tauri-drag-region>
         <div class="tab-nav-pill">
-          <button class="tab-btn tab-btn--active" type="button" data-tab="tab-main">Status</button>
+          <button class="tab-btn tab-btn--active" type="button" data-tab="tab-main">
+            <span class="status-indicator-dot status-indicator-dot--stopped" id="daemon-indicator" aria-hidden="true"></span>
+            <span>Status</span>
+          </button>
           <button
             id="btn-transfers"
             class="tab-btn"
@@ -124,6 +111,27 @@
 
             <form id="config-form" class="config-form">
               <div class="settings-card">
+
+                <div class="setting-group">
+                  <div class="setting-text">
+                    <span class="setting-title">Engine</span>
+                    <p class="setting-help">
+                      <span id="engine-running" class="engine-state">--</span> · Shares your mouse and keyboard with connected devices.
+                    </p>
+                  </div>
+                  <div class="daemon-actions">
+                    <div class="tooltip-wrapper">
+                      <button id="btn-engine-restart" class="btn btn--restart" type="button" disabled><svg class="btn-glyph" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.25" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12a9 9 0 1 1-2.64-6.36"/><path d="M21 3v6h-6"/></svg><span class="sr-only">Restart</span></button>
+                      <div class="mode-tooltip" role="tooltip"><strong>Restart</strong></div>
+                    </div>
+                    <div class="tooltip-wrapper">
+                      <button id="btn-engine-toggle" class="btn btn-primary" type="button" disabled><svg class="btn-glyph btn-glyph--spin" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.25" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12a9 9 0 1 1-9-9"/></svg><span class="sr-only">...</span></button>
+                      <div class="mode-tooltip" role="tooltip"><strong>Loading</strong></div>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="setting-divider"></div>
 
                 <div class="setting-group">
                   <div class="setting-text">
